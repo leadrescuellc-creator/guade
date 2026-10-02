@@ -38,6 +38,7 @@ def load_workflow(path: Path) -> WorkflowSpec:
         description=data.get("description", ""),
         agents=agents,
         steps=steps,
+        artifact_path=data.get("artifact_path"),
     )
     validate_workflow(workflow)
     return workflow
@@ -48,6 +49,10 @@ def validate_workflow(workflow: WorkflowSpec) -> None:
         raise WorkflowError("Workflow must define at least one agent.")
     if not workflow.steps:
         raise WorkflowError("Workflow must define at least one step.")
+    if workflow.artifact_path:
+        artifact = Path(workflow.artifact_path)
+        if artifact.is_absolute() or ".." in artifact.parts:
+            raise WorkflowError("Workflow artifact_path must stay inside the run workspace.")
 
     seen: set[str] = set()
     for step in workflow.steps:
@@ -67,4 +72,5 @@ def workflow_to_dict(workflow: WorkflowSpec) -> dict[str, Any]:
         "description": workflow.description,
         "agents": [agent.__dict__ for agent in workflow.agents.values()],
         "steps": [step.__dict__ for step in workflow.steps],
+        "artifact_path": workflow.artifact_path,
     }

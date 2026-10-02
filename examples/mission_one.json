@@ -1,6 +1,7 @@
 {
   "name": "mission-one-command-loop",
   "description": "A fast, local, no-tool command loop for validating the connected GUADE player stack.",
+  "artifact_path": "mission-status.md",
   "agents": [
     {
       "id": "commander",

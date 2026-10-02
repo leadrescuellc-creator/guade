@@ -28,6 +28,7 @@ class WorkflowSpec:
     description: str
     agents: dict[str, AgentSpec]
     steps: list[StepSpec]
+    artifact_path: str | None = None
 
 
 @dataclass(frozen=True)

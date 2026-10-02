@@ -85,6 +85,12 @@ class WorkflowRunner:
                     encoding="utf-8",
                 )
                 self.ledger.add_step(run_id, step.id, agent.id, result.model, result.output, result.usage)
+            if workflow.artifact_path and results:
+                artifact = (run_dir / workflow.artifact_path).resolve()
+                if run_dir.resolve() not in artifact.parents:
+                    raise ProviderError("Workflow artifact path escaped the run workspace.")
+                artifact.parent.mkdir(parents=True, exist_ok=True)
+                artifact.write_text(results[-1].output, encoding="utf-8")
             self.ledger.finish_run(run_id, "succeeded")
         except Exception:
             self.ledger.finish_run(run_id, "failed")
