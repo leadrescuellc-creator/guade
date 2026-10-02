@@ -115,13 +115,13 @@
           </section>
 
           <section id="assistant" class="section-block">
-            <button id="assistant-toggle" class="assistant-toggle" type="button" aria-expanded="true" aria-controls="assistant-panel"><span class="assistant-toggle-mark">G</span><span>GUADE Assistant</span><span class="assistant-toggle-state">MINIMIZE</span></button>
+            <button id="assistant-toggle" class="assistant-toggle" type="button" aria-expanded="true" aria-controls="assistant-panel"><span class="assistant-toggle-mark">G</span><span>GUADE Main Player</span><span class="assistant-toggle-state">MINIMIZE</span></button>
             <div class="section-heading">
               <div><div class="section-index">00 / OPERATOR SUPPORT</div><h2>Chat with GUADE</h2></div>
-              <span class="section-meta" id="assistant-state">OPERATOR GUIDE</span>
+              <span class="section-meta" id="assistant-state">MAIN PLAYER</span>
             </div>
             <div class="panel assistant-panel" id="assistant-panel">
-              <div class="assistant-toolbar"><span>SETUP · CONNECTIONS · WORKFLOWS · COMMANDS</span><button id="assistant-clear" type="button" title="Clear this browser's conversation" aria-label="Clear chat">Clear chat</button></div>
+              <div class="assistant-toolbar"><span>MISSIONS · WORKFLOWS · CODEX WRITES · COMMANDS</span><button id="assistant-clear" type="button" title="Clear this browser's conversation" aria-label="Clear chat">Clear chat</button></div>
               <details class="assistant-settings"><summary>MODEL SETTINGS</summary><form id="provider-settings-form" class="provider-settings">
                 <div class="provider-setting"><label for="workflow-provider">WORKFLOW MODEL</label><select id="workflow-provider"><option value="openai">OpenAI API</option><option value="ollama">Ollama (local)</option></select><input id="workflow-model" maxlength="120" placeholder="Model name"><input id="workflow-base-url" type="url" maxlength="500" placeholder="API base URL"></div>
                 <div class="provider-setting"><label for="assistant-provider">CHAT MODEL</label><select id="assistant-provider"><option value="codex">Codex CLI (signed-in)</option><option value="ollama">Ollama (local)</option><option value="openai">OpenAI API</option></select><input id="assistant-model" maxlength="120" placeholder="Model name (optional for Codex)"><input id="assistant-base-url" type="url" maxlength="500" placeholder="API base URL"></div>
@@ -130,8 +130,8 @@
               <div id="assistant-messages" class="assistant-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
               <div id="assistant-actions" class="assistant-actions" aria-live="polite"></div>
               <div class="assistant-prompts"><button type="button" data-chat-prompt="A. Help me set up GUADE. Check what is configured and give me the next steps.">A / SET UP</button><button type="button" data-chat-prompt="B. Think through the best income opportunity workflow for my situation and recommend where to start.">B / FIND INCOME</button><button type="button" data-chat-prompt="C. Help me connect a service or agent tool. Give me the simplest safe path.">C / CONNECT</button><button type="button" data-chat-prompt="D. I want to use the terminal. Help me choose the next command, but let me run it myself.">D / TERMINAL</button></div>
-              <form id="assistant-form" class="assistant-form"><label class="sr-only" for="assistant-input">Message GUADE Assistant</label><textarea id="assistant-input" rows="2" maxlength="8000" placeholder="Ask about setup, connections, workflows, or a terminal command…" required></textarea><button id="assistant-send" class="button-primary" type="submit"><span class="button-led"></span>Send</button></form>
-              <div class="assistant-footnote">Ask GUADE to do a task. It can inspect project files and prepare a change for you to review and approve. It will not run shell commands or touch passwords.</div>
+              <form id="assistant-form" class="assistant-form"><label class="sr-only" for="assistant-input">Message GUADE Main Player</label><textarea id="assistant-input" rows="2" maxlength="8000" placeholder="Give the objective, mission, workflow, or project change…" required></textarea><button id="assistant-send" class="button-primary" type="submit"><span class="button-led"></span>Send</button></form>
+              <div class="assistant-footnote">Codex mode can inspect and edit GUADE project files directly when you ask. It stays project-scoped and avoids passwords, keys, and credential files.</div>
               <details class="terminal-drawer" id="terminal-drawer">
                 <summary><span>LOCAL TERMINAL</span><small>USER-OPERATED SHELL · PROJECT DIRECTORY</small></summary>
                 <div class="terminal-disclosure">Commands run as your Linux user and can read, write, and execute files on this computer. The chat agent cannot send commands here. Only start the shell when you are ready to run commands yourself.</div>

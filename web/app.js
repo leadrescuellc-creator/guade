@@ -13,7 +13,7 @@ try {
 function renderChat() {
   const container = $("#assistant-messages");
   if (!chatMessages.length) {
-    container.innerHTML = '<div class="assistant-welcome"><span class="assistant-mark">G</span><div><strong>GUADE Assistant</strong><p>Ask me about getting set up, connecting tools, picking a workflow, or a command you are unsure about.</p></div></div>';
+    container.innerHTML = '<div class="assistant-welcome"><span class="assistant-mark">G</span><div><strong>GUADE Main Player</strong><p>Tell me the objective. I can pick workflows, operate the board, and edit project files through Codex when you ask.</p></div></div>';
     return;
   }
   container.innerHTML = chatMessages.map((message) => `<article class="chat-message ${message.role === "user" ? "chat-user" : "chat-agent"}"><span class="chat-speaker">${message.role === "user" ? "YOU" : "GUADE ASSISTANT"}</span><div class="chat-content"></div></article>`).join("");
@@ -184,7 +184,7 @@ $("#assistant-form").addEventListener("submit", async (event) => {
     chatMessages = chatMessages.slice(-16);
     saveChat();
     renderChat();
-    $("#assistant-state").textContent = "OPERATOR GUIDE";
+    $("#assistant-state").textContent = "MAIN PLAYER";
   } catch (error) {
     pending.textContent = error.message;
     pending.classList.add("assistant-error");
@@ -199,7 +199,7 @@ $("#assistant-clear").addEventListener("click", () => {
   chatMessages = [];
   saveChat();
   renderChat();
-  $("#assistant-state").textContent = "OPERATOR GUIDE";
+  $("#assistant-state").textContent = "MAIN PLAYER";
 });
 document.querySelectorAll("[data-chat-prompt]").forEach((button) => button.addEventListener("click", () => {
   $("#assistant-input").value = button.dataset.chatPrompt;

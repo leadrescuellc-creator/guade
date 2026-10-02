@@ -1,6 +1,7 @@
 # Copyright (c) 2026 LeadRescue LLC. All rights reserved.
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 import time
@@ -25,7 +26,7 @@ def launch() -> None:
         stream = log.open("a", encoding="utf-8")
         root = Path(__file__).resolve().parent.parent
         subprocess.Popen(
-            [sys.executable, "-m", "workflow_agent", "dashboard"],
+            [_dashboard_python(root), "-m", "workflow_agent", "dashboard"],
             cwd=root,
             stdin=subprocess.DEVNULL,
             stdout=stream,
@@ -44,4 +45,22 @@ def launch() -> None:
         else:
             raise SystemExit(f"GUADE did not start. Check {log} for details.")
 
+    _open_app_window()
+
+
+def _dashboard_python(root: Path) -> str:
+    venv_python = root / ".venv" / "bin" / "python"
+    if venv_python.is_file():
+        return str(venv_python)
+    return sys.executable
+
+
+def _open_app_window() -> None:
+    browser = next(
+        (shutil.which(name) for name in ("chromium", "chromium-browser", "google-chrome") if shutil.which(name)),
+        None,
+    )
+    if browser:
+        subprocess.Popen([browser, f"--app={URL}", "--no-first-run"], start_new_session=True)
+        return
     webbrowser.open(URL)

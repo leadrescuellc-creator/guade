@@ -87,53 +87,46 @@ def queue_file_change(root: Path, raw_path: Any, content: Any) -> dict[str, str]
     return {"approval_id": action_id, "path": relative, "diff": diff[:30_000], "summary": "Review this proposed file change in the chat and approve it to write."}
 
 
-def propose_codex_changes(root: Path, instructions: str, prompt: str, model: str | None = None) -> tuple[str, list[dict[str, str]]]:
+def run_codex_project_write(root: Path, instructions: str, prompt: str, model: str | None = None) -> tuple[str, list[dict[str, str]]]:
     executable = shutil.which("codex") or str(Path.home() / ".local/bin/codex")
     if not Path(executable).is_file() or not os.access(executable, os.X_OK):
         raise RuntimeError("Codex CLI is not installed or not available on GUADE's PATH.")
-    pattern_ignore = shutil.ignore_patterns(".git", ".venv", "__pycache__", ".pytest_cache", "node_modules", ".env", ".env.*", "*.sqlite3", "*.db", "media", "runs")
-    def ignore_symlinks(directory: str, names: list[str]) -> set[str]:
-        ignored = pattern_ignore(directory, names)
-        return ignored | {name for name in names if (Path(directory) / name).is_symlink()}
-    with tempfile.TemporaryDirectory(prefix="guade-chat-stage-") as temporary:
-        stage = Path(temporary) / "project"
-        shutil.copytree(root, stage, ignore=ignore_symlinks)
-        env = {key: os.environ[key] for key in ("PATH", "HOME", "CODEX_HOME", "TMPDIR", "TEMP", "TMP") if key in os.environ}
-        git_env = {**env, "GIT_CONFIG_NOSYSTEM": "1", "GIT_AUTHOR_NAME": "GUADE", "GIT_AUTHOR_EMAIL": "guade@localhost", "GIT_COMMITTER_NAME": "GUADE", "GIT_COMMITTER_EMAIL": "guade@localhost"}
-        for command in (["git", "init", "-q"], ["git", "add", "-A"], ["git", "commit", "-qm", "GUADE review baseline"]):
-            completed = subprocess.run(command, cwd=stage, env=git_env, capture_output=True, text=True, timeout=30, check=False)
-            if completed.returncode:
-                raise RuntimeError(f"Could not prepare an isolated review workspace: {completed.stderr[-1000:]}")
+    with tempfile.TemporaryDirectory(prefix="guade-chat-codex-") as temporary:
         output_path = Path(temporary) / "answer.txt"
-        command = [executable, "exec", "--ignore-user-config", "--sandbox", "workspace-write", "--skip-git-repo-check", "--ephemeral", "--output-last-message", str(output_path)]
+        env = {key: os.environ[key] for key in ("PATH", "HOME", "CODEX_HOME", "TMPDIR", "TEMP", "TMP") if key in os.environ}
+        command = [
+            executable,
+            "exec",
+            "--ignore-user-config",
+            "--sandbox",
+            "workspace-write",
+            "--skip-git-repo-check",
+            "--ephemeral",
+            "--output-last-message",
+            str(output_path),
+        ]
         if model:
             command.extend(("--model", model))
-        command.append(f"{instructions}\n\n{prompt}\n\nMake requested file edits only inside this isolated project copy. Do not run commands, access networks, or claim changes are applied to the real project. Do not delete files; if deletion is necessary, explain that separately.")
-        result = subprocess.run(command, cwd=stage, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=240, check=False)
+        command.append(
+            f"{instructions}\n\n{prompt}\n\n"
+            "You are running with workspace-write access to the real GUADE project. "
+            "When the user asks for code or document edits, make the smallest useful changes directly in this project. "
+            "Stay inside the project directory. Do not read or edit credential files, .env files, provider settings, connector settings, .git, .venv, databases, media, or run ledgers. "
+            "Do not delete files unless the user explicitly asked. Do not access the network. "
+            "After editing, summarize exactly what changed and mention any tests you did or did not run."
+        )
+        result = subprocess.run(command, cwd=root, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=240, check=False)
         if result.returncode:
             detail = (result.stderr or result.stdout).strip()[-2000:]
-            raise RuntimeError(f"Codex CLI could not prepare changes (exit {result.returncode}): {detail or 'No error details.'}")
-        changed = subprocess.run(["git", "status", "--short", "--untracked-files=all"], cwd=stage, env=git_env, capture_output=True, text=True, timeout=20, check=True).stdout.splitlines()
-        paths = []
-        for line in changed:
-            raw = line[3:]
-            if raw and " -> " not in raw and not raw.startswith("D "):
-                paths.append(raw)
-        if len(paths) > 20:
-            raise RuntimeError("Codex proposed more than 20 files. Ask it to make a smaller change.")
-        actions = []
-        for raw in paths:
-            staged_path = _path(stage, raw)
-            if not staged_path.is_file() or staged_path.stat().st_size > 250_000:
-                continue
-            action = queue_file_change(root, raw, staged_path.read_text(encoding="utf-8"))
-            actions.append(action)
+            raise RuntimeError(f"Codex CLI could not make changes (exit {result.returncode}): {detail or 'No error details.'}")
         answer = output_path.read_text(encoding="utf-8").strip() if output_path.is_file() else ""
-        if actions:
-            answer += ("\n\n" if answer else "") + f"I prepared {len(actions)} file change(s) in an isolated copy. Review each diff below and apply only the ones you approve."
-        elif not answer:
-            answer = "I didn't prepare any file changes. Tell me what you'd like changed."
-        return answer, actions
+        if not answer:
+            answer = "Codex finished without a final message. Check the project diff before continuing."
+        return answer, []
+
+
+def propose_codex_changes(root: Path, instructions: str, prompt: str, model: str | None = None) -> tuple[str, list[dict[str, str]]]:
+    return run_codex_project_write(root, instructions, prompt, model)
 
 
 def apply_chat_action(root: Path, action_id: str) -> dict[str, str]:
