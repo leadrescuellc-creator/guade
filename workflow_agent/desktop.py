@@ -1,7 +1,6 @@
 # Copyright (c) 2026 LeadRescue LLC. All rights reserved.
 from __future__ import annotations
 
-import shutil
 import subprocess
 import sys
 import time
@@ -45,8 +44,4 @@ def launch() -> None:
         else:
             raise SystemExit(f"GUADE did not start. Check {log} for details.")
 
-    browser = next((shutil.which(name) for name in ("chromium", "chromium-browser", "google-chrome") if shutil.which(name)), None)
-    if browser:
-        subprocess.Popen([browser, f"--app={URL}", "--no-first-run"], start_new_session=True)
-    else:
-        webbrowser.open(URL)
+    webbrowser.open(URL)
