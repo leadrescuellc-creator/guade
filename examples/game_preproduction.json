@@ -1,0 +1,43 @@
+{
+  "name": "game-preproduction-blueprint",
+  "description": "Turn a game idea into a reviewed pre-production blueprint before writing code, dialogue, or production assets.",
+  "agents": [
+    {
+      "id": "producer",
+      "name": "Pre-Production Producer",
+      "instructions": "Clarify the game's audience, platform, scope, budget, team, constraints, and success criteria. Identify unanswered decisions. Do not invent user preferences; mark assumptions and give concise options where requirements are missing.",
+      "tools": []
+    },
+    {
+      "id": "game_designer",
+      "name": "Game Designer",
+      "instructions": "Use the producer handoff to create a practical game design blueprint: core player fantasy, pillars, gameplay loop, systems, progression, content scope, accessibility, visual/audio direction, and a first playable milestone. Keep the scope matched to the stated team and budget. Do not write implementation code or dialogue in pre-production.",
+      "tools": ["filesystem.write"]
+    },
+    {
+      "id": "production_reviewer",
+      "name": "Production Reviewer",
+      "instructions": "Review the blueprint for contradictions, scope risk, missing production decisions, unsafe assumptions, and testable milestones. Separate confirmed decisions from assumptions and open questions. Preserve the pre-production boundary: do not add code or dialogue.",
+      "tools": ["filesystem.write"]
+    }
+  ],
+  "steps": [
+    {
+      "id": "discovery",
+      "agent": "producer",
+      "task": "Create a one-page discovery brief from the user's game concept. Capture audience, platform, genre, player fantasy, team, budget, schedule, accessibility needs, references, constraints, unknowns, and assumptions. Ask focused questions only when necessary; otherwise label unanswered items clearly."
+    },
+    {
+      "id": "blueprint",
+      "agent": "game_designer",
+      "depends_on": ["discovery"],
+      "task": "Write game-blueprint.md with: high concept, target audience/platform, design pillars, core loop, key mechanics, progression, content boundaries, art/audio direction, accessibility, first playable milestone, risks, and a prioritized decision list. Mark every assumption. Do not write code, dialogue, or production assets."
+    },
+    {
+      "id": "review",
+      "agent": "production_reviewer",
+      "depends_on": ["discovery", "blueprint"],
+      "task": "Review and revise game-blueprint.md. Add a clear pre-production approval gate: decisions required before production starts, measurable first-playable acceptance criteria, top risks with mitigations, and remaining questions. Keep the deliverable at blueprint level only. Return a concise summary and the artifact path."
+    }
+  ]
+}

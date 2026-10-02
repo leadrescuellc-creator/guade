@@ -13,7 +13,7 @@ GUADE is a local-first workflow agent framework and operations dashboard. It coo
 
 ## Setup
 
-1. Clone the private repository and enter the project directory:
+1. Clone the public repository and enter the project directory:
 
    ```bash
    git clone https://github.com/leadrescuellc-creator/guade.git
@@ -44,6 +44,14 @@ GUADE is a local-first workflow agent framework and operations dashboard. It coo
    ```
 
    For Windows PowerShell, use `$env:OPENAI_API_KEY="your-api-key"` and `$env:OPENAI_MODEL="gpt-5-mini"`. API keys are never entered into the dashboard or saved in provider settings. Direct chat supports Codex CLI, Ollama, or OpenAI API. Workflow agents support Ollama or OpenAI-compatible Responses API providers; Codex CLI is chat-only because tool-granted workflows use the Responses tool-calling contract.
+
+The Workshop guides you through choosing Codex, Ollama, or OpenAI and explains what each option needs before saving.
+
+## Agent League
+
+The Operations Arena presents real workflow runs as missions with a game-inspired roster of radiant and fallen, gold-obsessed saint archetypes. The portraits and rank language are presentation only: agents shown in the roster are the real agents from the selected workflow, and deployments are saved to the run ledger. The current engine executes each workflow's agents in sequence; head-to-head brackets and automatic payout verification are not implemented. The earnings display stays at zero until a verifiable payout source is connected. Generated plans, sales estimates, clicks, and unverified claims do not count as earnings. Review all work before publishing or spending.
+
+The OpenClaw map node is labeled not linked unless an actual integration is configured. GUADE currently runs its own workflow engine using the configured Ollama or OpenAI-compatible model. Do not interpret the visual node as evidence that OpenClaw, Claude, or an OpenAI master agent is running.
 
 5. (Optional) Choose where GUADE stores its SQLite ledger and run artifacts:
 
@@ -77,7 +85,11 @@ Stop the dashboard with `Ctrl+C` in its terminal. To use another local port, sta
 
 ## Chat And Model Providers
 
-Use **Chat with GUADE** for setup questions, connector guidance, workflow directions, and terminal commands. Its conversation is held in that browser's local storage. Select Codex CLI for a signed-in, ephemeral, read-only assistant session; select Ollama for local chat; or select OpenAI API if you have an API key. Commands are suggested for you to review and run, never executed by chat.
+Use the floating **GUADE Assistant** button for setup questions, connector guidance, opportunity planning, workflow directions, and terminal commands. Replies favor short A/B/C/D choices and numbered steps. Its conversation is held in that browser's local storage.
+
+When you ask it to change project files, Codex drafts edits in a disposable copy of the project; Ollama and OpenAI-compatible chat can inspect project files and prepare edits. GUADE shows each proposed file and its diff. Nothing is written to the real project until you select **Apply change**. Chat cannot edit credentials or files outside the GUADE project. The separate terminal runs with your Linux account permissions and is always operated by you; chat does not execute shell commands.
+
+The Income desk includes the creator monetization list in `data/creator_monetization.csv`. Search the list and select **Plan this** to ask the assistant for a fit check, validation idea, and short launch steps. Descriptions are leads to investigate, not endorsements or guaranteed income.
 
 Workflow agents use Ollama or the OpenAI Responses API. Ollama is the default workflow provider and model on a fresh install. Start the Ollama service and pull the configured model if it is not already present:
 
@@ -121,6 +133,10 @@ Workflow definitions are JSON files in `examples/`. Each one declares its agents
 
 GUADE does not promise earnings or claim to open accounts or publish listings automatically. It prepares reviewable work before you spend money or publish.
 
+## Game Pre-Production Blueprint
+
+Choose **Blueprint a new game** from the Operations Arena to run `examples/game_preproduction.json`. The workflow gathers concept constraints, drafts a game design blueprint, and reviews scope, risks, milestones, and unanswered decisions. It deliberately stops before implementation: no code, dialogue, or production assets are written. Use the approval gate and resolve open questions before starting a separate production workflow.
+
 ## Connect Agent Tools
 
 GUADE accepts local stdio and remote HTTP MCP tool servers, so you can connect tools needed by different agents without adding vendor-specific code.
@@ -145,10 +161,10 @@ With Claude Code installed, run this once from the GUADE project directory:
 claude mcp add guade -- /absolute/path/to/guade/bin/guade-mcp
 ```
 
-For this machine's checkout, the command is:
+From your checkout directory, register the local launcher with:
 
 ```bash
-claude mcp add guade -- /home/east/workflow-agent/bin/guade-mcp
+claude mcp add guade -- "$(pwd)/bin/guade-mcp"
 ```
 
 Start a new Claude Code session. GUADE provides `guade_list_workflows`, `guade_run`, `guade_runs`, and `guade_show`. Claude Code must inherit `OPENAI_API_KEY` from its terminal environment for GUADE workflows that make nested model calls.
@@ -162,3 +178,7 @@ GUADE writes a SQLite run ledger and a directory per operation under `GUADE_HOME
 ## Copyright And License
 
 GUADE and its accompanying source code, documentation, dashboard, and workflow examples are proprietary to LeadRescue LLC. All rights are reserved. See [LICENSE](LICENSE) and [NOTICE](NOTICE). No license to use, copy, modify, or distribute this software is granted except as authorized in writing by LeadRescue LLC.
+
+## Contributing
+
+The repository is public and accepts proposed improvements through GitHub pull requests. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening one. Public visibility does not grant direct write access; use a fork and pull request. GUADE is proprietary, so submitting a pull request does not by itself transfer copyright. A separate written agreement is required if a contribution is to become exclusively owned by LeadRescue LLC.

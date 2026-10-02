@@ -1,0 +1,22 @@
+<!-- Copyright (c) 2026 LeadRescue LLC. All rights reserved. -->
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="saint-scholar" viewBox="0 0 64 64">
+    <circle cx="32" cy="20" r="17" fill="none" stroke="#ffd56b" stroke-width="3"/><circle cx="32" cy="20" r="12" fill="none" stroke="#fff0a8" stroke-width="1"/>
+    <path d="M8 64q2-22 18-25h12q16 3 18 25" fill="#08765d" stroke="#4df5ac" stroke-width="2"/><path d="M23 28q-3-22 9-22t9 22q-1 12-9 12t-9-12" fill="#c98250"/><path d="M20 26Q18 7 32 6t13 20l-5-8-8 3-7-4z" fill="#172a2c" stroke="#b39250" stroke-width="2"/><path d="M24 32h7v7h-7zM33 32h7v7h-7z" fill="#ffe7a1" stroke="#fff0ad"/><path d="M25 50l7-5 7 5-7 8z" fill="#ffd56b" stroke="#fff0a8"/><path d="M29 51h6v3h-6z" fill="#b33948"/>
+  </symbol>
+  <symbol id="saint-forger" viewBox="0 0 64 64">
+    <path d="M15 24a17 17 0 0 1 34 0" fill="none" stroke="#ffcb56" stroke-width="4"/><path d="M21 30q0-18 11-18t11 18q0 12-11 12t-11-12" fill="#9a5a39"/><path d="M18 28Q15 7 32 7q14 0 15 20l-8-8-8 5-8-3z" fill="#30221c" stroke="#ffd05f" stroke-width="2"/><path d="M24 29h6m5 0h6m-11 0h5" stroke="#251c16" stroke-width="2"/><path d="M8 64q2-23 19-26h10q17 3 19 26" fill="#7b3b24" stroke="#e6ae44" stroke-width="2"/><path d="M32 46l9 8-9 7-9-7z" fill="#f8bd42"/><circle cx="32" cy="53" r="4" fill="#fff0a8"/><path d="M17 49h7m16 0h7" stroke="#ffe06e" stroke-width="3"/>
+  </symbol>
+  <symbol id="saint-seeker" viewBox="0 0 64 64">
+    <path d="M12 22a20 20 0 0 1 40 0" fill="none" stroke="#eac85c" stroke-width="3"/><path d="M20 29q1-18 12-18t12 18q-1 12-12 12T20 29" fill="#d39162"/><path d="M17 29Q15 8 32 7q15 1 15 22l-7-7-8 4-8-5z" fill="#162d31" stroke="#4ee2d2" stroke-width="2"/><path d="M8 64q3-22 19-26h10q16 4 19 26" fill="#07566a" stroke="#4de5d6" stroke-width="2"/><path d="M32 45l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" fill="#ffdf68"/><circle cx="32" cy="53" r="2" fill="#fff"/><path d="M22 48l-5 8m25-8 5 8" stroke="#f6c957" stroke-width="2"/>
+  </symbol>
+  <symbol id="fallen-oracle" viewBox="0 0 64 64">
+    <path d="M14 23L20 8l9 10 6-13 7 15 10-8-3 20" fill="none" stroke="#e4ae49" stroke-width="3"/><path d="M21 30q0-19 11-19t11 19q0 12-11 12T21 30" fill="#9a5e42"/><path d="M18 30Q14 8 32 7q16 0 15 24l-8-10-7 5-8-3z" fill="#18191d" stroke="#b18a4a" stroke-width="2"/><path d="M8 64q2-22 20-26h8q18 4 20 26" fill="#331b26" stroke="#a94451" stroke-width="2"/><path d="M32 45v14m-6-8h12" stroke="#ffd36c" stroke-width="3"/><circle cx="32" cy="53" r="5" fill="none" stroke="#ffcf55" stroke-width="2"/><path d="M24 29h5m6 0h5" stroke="#fbe4a0" stroke-width="2"/>
+  </symbol>
+  <symbol id="fallen-judge" viewBox="0 0 64 64">
+    <path d="M14 24L9 13l12 5 6-12 6 11 11-9-1 16" fill="none" stroke="#f0bf58" stroke-width="3"/><path d="M21 30q0-19 11-19t11 19q0 12-11 12T21 30" fill="#b27b55"/><path d="M18 30Q15 8 32 7q17 1 15 24l-7-9-8 5-8-4z" fill="#241a1b" stroke="#92743e" stroke-width="2"/><path d="M24 29h6m4 0h6m-9-2v9" stroke="#f4d879" stroke-width="2"/><path d="M8 64q2-22 19-26h10q17 4 19 26" fill="#40261d" stroke="#be8739" stroke-width="2"/><path d="M24 48h16l-8 12z" fill="#e7b84e"/><circle cx="32" cy="52" r="3" fill="#fff0ab"/>
+  </symbol>
+  <symbol id="fallen-trickster" viewBox="0 0 64 64">
+    <path d="M12 23L7 10l16 7 7-13 6 13 18-8-7 19" fill="none" stroke="#dcae5a" stroke-width="3"/><path d="M21 30q0-19 11-19t11 19q0 12-11 12T21 30" fill="#a46b4b"/><path d="M17 31Q13 7 32 7q18 1 16 25l-8-10-8 4-8-5z" fill="#161d21" stroke="#497768" stroke-width="2"/><path d="M8 64q2-22 19-26h10q17 4 19 26" fill="#17352e" stroke="#4ba67d" stroke-width="2"/><path d="M22 49l10-5 10 5-10 12z" fill="#d8ac47"/><path d="M29 51h6v5h-6z" fill="#fff0a8"/><path d="M23 29h5m8 0h5" stroke="#eddaa0" stroke-width="2"/><path d="M32 24l4 6-4 6-4-6z" fill="#a1444a"/>
+  </symbol>
+</svg>

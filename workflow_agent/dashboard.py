@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import json
+import csv
 import mimetypes
 import os
 import re
 import shutil
 import subprocess
 import threading
+import secrets
 import uuid
 import urllib.request
 from dataclasses import replace
@@ -27,6 +29,9 @@ from .provider import (
 )
 from .runner import WorkflowRunner
 from .storage import Ledger
+from .terminal import LocalTerminal
+from .mcp_registry import search_registry
+from .chat_actions import CHAT_TOOLS, apply_chat_action, execute_chat_tool, propose_codex_changes
 from .mcp_connectors import (
     MCPConnectorError,
     MCPToolSession,
@@ -39,7 +44,10 @@ from .workflow import load_workflow
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = PROJECT_ROOT / "web"
+OPPORTUNITY_FILE = PROJECT_ROOT / "data" / "creator_monetization.csv"
 WORKFLOW_ROOT = PROJECT_ROOT / "examples"
+_TERMINAL_SESSIONS: dict[str, LocalTerminal] = {}
+_TERMINAL_LOCK = threading.Lock()
 
 
 def _workflow_catalog() -> list[dict[str, Any]]:
@@ -145,10 +153,39 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
         elif path == "/api/settings/provider":
             self._json(read_provider_settings())
+        elif path == "/api/terminal/read":
+            session_id = parse_qs(urlparse(self.path).query).get("session", [""])[0]
+            with _TERMINAL_LOCK:
+                terminal = _TERMINAL_SESSIONS.get(session_id)
+            if terminal is None or not re.fullmatch(r"[a-f0-9]{32}", session_id):
+                self._json({"error": "Terminal session not found."}, 404)
+            else:
+                self._json(terminal.read())
         elif path == "/api/workflows":
             self._json(_workflow_catalog())
+        elif path == "/api/opportunities":
+            query = parse_qs(urlparse(self.path).query).get("search", [""])[0].strip().lower()[:100]
+            try:
+                with OPPORTUNITY_FILE.open(encoding="utf-8-sig", newline="") as source:
+                    rows = list(csv.DictReader(source))
+                opportunities = [
+                    {"name": row["App Name"].strip(), "model": row["How Money Is Made"].strip()}
+                    for row in rows
+                    if row.get("App Name", "").strip() and row.get("How Money Is Made", "").strip()
+                ]
+                if query:
+                    opportunities = [item for item in opportunities if query in f"{item['name']} {item['model']}".lower()]
+                self._json({"opportunities": opportunities, "total": len(rows), "source": OPPORTUNITY_FILE.name})
+            except (OSError, KeyError, csv.Error) as exc:
+                self._json({"error": f"Could not read opportunity library: {exc}"}, 500)
         elif path == "/api/connectors":
             self._json(public_connectors())
+        elif path == "/api/mcp-catalog":
+            query = parse_qs(urlparse(self.path).query).get("search", [""])[0]
+            try:
+                self._json({"servers": search_registry(query)})
+            except RuntimeError as exc:
+                self._json({"error": str(exc)}, 502)
         elif path.startswith("/api/connectors/") and path.endswith("/inspect"):
             connector_id = path.removeprefix("/api/connectors/").removesuffix("/inspect").strip("/")
             connector = next((item for item in read_connectors() if item["id"] == connector_id), None)
@@ -188,13 +225,35 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._file("grants.css", "text/css; charset=utf-8")
         elif path == "/chat.css":
             self._file("chat.css", "text/css; charset=utf-8")
+        elif path == "/ui-overrides.css":
+            self._file("ui-overrides.css", "text/css; charset=utf-8")
+        elif path == "/league.css":
+            self._file("league.css", "text/css; charset=utf-8")
+        elif path == "/saint-icons.svg":
+            self._file("saint-icons.svg", "image/svg+xml; charset=utf-8")
         elif path == "/app.js":
             self._file("app.js", "text/javascript; charset=utf-8")
+        elif path == "/guadalupe-icon.png":
+            self._file("guadalupe-icon.png", "image/png")
         else:
             self._json({"error": "Not found."}, 404)
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if path.startswith("/api/terminal/"):
+            if not self._same_origin_request():
+                self._json({"error": "Terminal requests must come from the local GUADE app."}, 403)
+                return
+            if path == "/api/terminal/start":
+                self._start_terminal()
+            elif path == "/api/terminal/input":
+                self._send_terminal_input()
+            else:
+                self._json({"error": "Not found."}, 404)
+            return
+        if path.startswith("/api/chat/actions/"):
+            self._approve_chat_action(path)
+            return
         if path == "/api/settings/provider":
             self._save_provider_settings()
             return
@@ -304,10 +363,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             instructions = (
                 "You are GUADE Assistant, the in-app operator guide for GUADE by LeadRescue LLC. "
                 "Help directly with setup, model configuration, MCP connections, choosing workflows, creator tools, "
-                "and terminal commands. Be concise, practical, and specific to the supplied live GUADE context. "
+                "and terminal commands. Think through the user's goal, recommend the best path, and make the next move obvious. "
+                "Keep replies simple and concise. When choices help, offer at most four clearly labeled A/B/C/D options; "
+                "when steps help, use a short numbered 1-4 list. Do not force options when a direct answer is better. "
+                "Use the supplied live GUADE context instead of generic guesses. "
                 "Distinguish verified app behavior from suggestions, never promise income, and never claim to have "
-                "changed files, run commands, connected accounts, or published listings. You cannot execute tools. "
-                "Give commands for the user to review and run themselves; explain destructive or credential-sensitive "
+                "changed files, run commands, connected accounts, or published listings unless a tool result confirms it. "
+                "You may inspect project files and prepare a file change when the user asks for work that needs it. "
+                "A proposed change is NOT applied until the user reviews its exact diff and approves it in chat. "
+                "Never use file tools for secrets, credentials, or files outside the GUADE project. Never run shell commands. "
+                "Give commands for the user to review and run in the separate local terminal panel; explain destructive or credential-sensitive "
                 "commands before suggesting them. Never ask the user to paste API keys into chat. If the model key "
                 "is missing, clearly say chat replies require OPENAI_API_KEY and show how to set it in a terminal. "
                 "For connector secrets, use environment variable names and explain restarting GUADE after setting them. "
@@ -316,8 +381,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
             prompt = "Conversation so far:\n" + "\n".join(
                 f"{item['role'].upper()}: {item['content']}" for item in clean[-16:]
             )
-            answer = status.complete(instructions, prompt).text
-            self._json({"answer": answer})
+            actions = []
+            requested_change = re.search(r"\b(add|build|change|create|edit|fix|implement|make|modify|remove|rename|rewrite|update|write)\b", clean[-1]["content"].lower())
+            if status.provider_name == "codex" and requested_change:
+                answer, actions = propose_codex_changes(PROJECT_ROOT, instructions, prompt, read_provider_settings()["assistant"]["model"] or None)
+            elif status.provider_name == "codex":
+                answer = status.complete(instructions, prompt).text
+            else:
+                result = status.complete_with_tools(
+                    instructions,
+                    prompt,
+                    CHAT_TOOLS,
+                    lambda name, args: execute_chat_tool(PROJECT_ROOT, name, args),
+                )
+                answer = result.text
+                for event in result.tool_events:
+                    if event.get("name") != "guade_propose_file_change":
+                        continue
+                    try:
+                        proposal = json.loads(event.get("output", ""))
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(proposal, dict) and re.fullmatch(r"[a-f0-9]{32}", str(proposal.get("approval_id", ""))):
+                        actions.append(proposal)
+            self._json({"answer": answer, "actions": actions})
         except (ValueError, TypeError, json.JSONDecodeError) as exc:
             self._json({"error": str(exc)}, 400)
         except ProviderError as exc:
@@ -337,8 +424,35 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except (ValueError, TypeError, json.JSONDecodeError) as exc:
             self._json({"error": str(exc)}, 400)
 
+    def _approve_chat_action(self, path: str) -> None:
+        if not self._same_origin_request():
+            self._json({"error": "Approvals must come from the local GUADE app."}, 403)
+            return
+        match = re.fullmatch(r"/api/chat/actions/([a-f0-9]{32})/approve", path)
+        if not match:
+            self._json({"error": "Not found."}, 404)
+            return
+        try:
+            self._json(apply_chat_action(PROJECT_ROOT, match.group(1)))
+        except (ValueError, OSError) as exc:
+            self._json({"error": str(exc)}, 400)
+
     def do_DELETE(self) -> None:
         path = urlparse(self.path).path
+        terminal_prefix = "/api/terminal/"
+        if path.startswith(terminal_prefix):
+            if not self._same_origin_request():
+                self._json({"error": "Terminal requests must come from the local GUADE app."}, 403)
+                return
+            session_id = path.removeprefix(terminal_prefix)
+            with _TERMINAL_LOCK:
+                terminal = _TERMINAL_SESSIONS.pop(session_id, None)
+            if terminal is None:
+                self._json({"error": "Terminal session not found."}, 404)
+            else:
+                terminal.close()
+                self._json({"stopped": True})
+            return
         prefix = "/api/connectors/"
         if not path.startswith(prefix):
             self._json({"error": "Not found."}, 404)
@@ -351,6 +465,54 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         write_connectors(remaining)
         self._json({"removed": connector_id})
+
+    def _same_origin_request(self) -> bool:
+        origin = self.headers.get("Origin")
+        host = self.headers.get("Host", "").lower()
+        if not origin or not host:
+            return False
+        parsed = urlparse(origin)
+        return parsed.scheme in {"http", "https"} and parsed.netloc.lower() == host and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+
+    def _start_terminal(self) -> None:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > 1000:
+                raise ValueError("Confirm the terminal disclosure to start a local shell.")
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+            if body.get("confirmed") is not True:
+                raise ValueError("Confirm that terminal commands run with your Linux account permissions.")
+            terminal = LocalTerminal(PROJECT_ROOT)
+            terminal.start()
+            session_id = secrets.token_hex(16)
+            with _TERMINAL_LOCK:
+                if len(_TERMINAL_SESSIONS) >= 4:
+                    _, oldest = _TERMINAL_SESSIONS.popitem()
+                    oldest.close()
+                _TERMINAL_SESSIONS[session_id] = terminal
+            self._json({"session": session_id, "cwd": str(PROJECT_ROOT)}, 201)
+        except (ValueError, TypeError, json.JSONDecodeError, OSError, RuntimeError) as exc:
+            self._json({"error": str(exc)}, 400)
+
+    def _send_terminal_input(self) -> None:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > 10_000:
+                raise ValueError("Terminal input must be under 10 KB.")
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+            session_id = str(body.get("session", ""))
+            value = body.get("input")
+            if not re.fullmatch(r"[a-f0-9]{32}", session_id) or not isinstance(value, str) or len(value) > 8_192:
+                raise ValueError("Terminal session or input is invalid.")
+            with _TERMINAL_LOCK:
+                terminal = _TERMINAL_SESSIONS.get(session_id)
+            if terminal is None:
+                raise ValueError("Terminal session not found. Start a new terminal session.")
+            raw = body.get("raw") is True
+            terminal.send(value if raw or value.endswith("\n") else value + "\n")
+            self._json({"sent": True})
+        except (ValueError, TypeError, json.JSONDecodeError, OSError, RuntimeError) as exc:
+            self._json({"error": str(exc)}, 400)
 
     def _save_connector(self) -> None:
         try:
@@ -483,6 +645,11 @@ def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
         print("\nGUADE dashboard stopped.")
     finally:
         server.server_close()
+        with _TERMINAL_LOCK:
+            terminals = list(_TERMINAL_SESSIONS.values())
+            _TERMINAL_SESSIONS.clear()
+        for terminal in terminals:
+            terminal.close()
 
 
 def main() -> None:

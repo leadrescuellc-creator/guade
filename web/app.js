@@ -1,6 +1,7 @@
 // Copyright (c) 2026 LeadRescue LLC. All rights reserved.
 const $ = (selector) => document.querySelector(selector);
-const state = { workflows: [], runs: [], connectors: [], selectedWorkflow: null, selectedRun: null, pollTimer: null, sourceFile: null, sourceId: null, sourceDuration: 0, sourceUrl: null, mediaReady: false };
+const state = { workflows: [], runs: [], connectors: [], catalog: [], opportunities: [], catalogTimer: null, terminalSession: null, terminalTimer: null, selectedWorkflow: null, selectedRun: null, pollTimer: null, sourceFile: null, sourceId: null, sourceDuration: 0, sourceUrl: null, mediaReady: false };
+let pendingChatActions = [];
 
 const chatKey = "guade-assistant-chat";
 let chatMessages = [];
@@ -20,6 +21,63 @@ function renderChat() {
   container.scrollTop = container.scrollHeight;
 }
 
+function renderChatActions(actions = pendingChatActions) {
+  pendingChatActions = actions;
+  const area = $("#assistant-actions");
+  area.replaceChildren();
+  for (const action of actions) {
+    const card = document.createElement("article");
+    card.className = "chat-action-card";
+    const heading = document.createElement("strong");
+    heading.textContent = `GUADE suggests changing ${action.path}`;
+    const summary = document.createElement("p");
+    summary.textContent = action.summary || "Review the proposed change. Nothing has been changed yet.";
+    const diff = document.createElement("pre");
+    diff.textContent = action.diff || "New file content prepared.";
+    const buttons = document.createElement("div");
+    buttons.className = "chat-action-buttons";
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.className = "button-primary";
+    apply.textContent = "Apply change";
+    const dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.className = "chat-action-dismiss";
+    dismiss.textContent = "Don't apply";
+    apply.addEventListener("click", async () => {
+      apply.disabled = true;
+      try {
+        const result = await request(`/api/chat/actions/${encodeURIComponent(action.approval_id)}/approve`, { method: "POST" });
+        summary.textContent = `Done. Changed ${result.path}.`;
+        diff.remove();
+        buttons.remove();
+        pendingChatActions = pendingChatActions.filter((item) => item.approval_id !== action.approval_id);
+      } catch (error) {
+        summary.textContent = error.message;
+        apply.disabled = false;
+      }
+    });
+    dismiss.addEventListener("click", () => {
+      card.remove();
+      pendingChatActions = pendingChatActions.filter((item) => item.approval_id !== action.approval_id);
+    });
+    buttons.append(apply, dismiss);
+    card.append(heading, summary, diff, buttons);
+    area.append(card);
+  }
+}
+
+const assistantSection = $("#assistant");
+const assistantToggle = $("#assistant-toggle");
+function setAssistantOpen(open) {
+  assistantSection.classList.toggle("assistant-collapsed", !open);
+  assistantToggle.setAttribute("aria-expanded", String(open));
+  assistantToggle.querySelector(".assistant-toggle-state").textContent = open ? "MINIMIZE" : "OPEN";
+  try { localStorage.setItem("guade-assistant-open", String(open)); } catch {}
+}
+setAssistantOpen(localStorage.getItem("guade-assistant-open") === "true");
+assistantToggle.addEventListener("click", () => setAssistantOpen(assistantSection.classList.contains("assistant-collapsed")));
+
 function updateProviderFields() {
   const assistant = $("#assistant-provider").value;
   $("#assistant-base-url").disabled = assistant === "codex";
@@ -37,10 +95,34 @@ async function loadProviderSettings() {
       $(`#${scope}-base-url`).value = settings[scope].base_url;
     }
     updateProviderFields();
+    document.querySelectorAll("[data-setup-provider]").forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.setupProvider === settings.assistant.provider));
+    });
+    updateSetupHelp(settings.assistant.provider);
   } catch (error) {
     $("#provider-message").textContent = error.message;
   }
 }
+
+function updateSetupHelp(provider) {
+  const help = {
+    codex: "Codex selected. Make sure Codex CLI is installed and signed in. Your current workflow model stays as-is.",
+    ollama: "Ollama selected. Install Ollama and download a model first. GUADE will use it for chat and workflows.",
+    openai: "OpenAI selected. Set OPENAI_API_KEY in the terminal before starting GUADE. The key is never stored in this screen.",
+  };
+  $("#setup-choice-help").textContent = help[provider] || "Choose A, B, or C to see what you need.";
+  $("#setup-save").disabled = !provider;
+}
+
+document.querySelectorAll("[data-setup-provider]").forEach((button) => button.addEventListener("click", () => {
+  const choice = button.dataset.setupProvider;
+  $("#assistant-provider").value = choice;
+  if (choice === "ollama" || choice === "openai") $("#workflow-provider").value = choice;
+  updateProviderFields();
+  document.querySelectorAll("[data-setup-provider]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+  updateSetupHelp(choice);
+}));
+$("#setup-save").addEventListener("click", () => $("#provider-settings-form").requestSubmit());
 
 $("#workflow-provider").addEventListener("change", updateProviderFields);
 $("#assistant-provider").addEventListener("change", updateProviderFields);
@@ -60,6 +142,7 @@ $("#provider-settings-form").addEventListener("submit", async (event) => {
       }]))),
     });
     message.textContent = "Saved locally. New chat replies and workflow runs will use these providers.";
+    $("#setup-choice-help").textContent = "Choice saved on this computer. Check the status at the top, then choose what you want to do below.";
     await loadStatus();
   } catch (error) {
     message.textContent = error.message;
@@ -97,6 +180,7 @@ $("#assistant-form").addEventListener("submit", async (event) => {
       body: JSON.stringify({ messages: chatMessages }),
     });
     chatMessages.push({ role: "assistant", content: result.answer });
+    renderChatActions([...pendingChatActions, ...(result.actions || [])]);
     chatMessages = chatMessages.slice(-16);
     saveChat();
     renderChat();
@@ -207,6 +291,7 @@ function renderWorkflows() {
     if (workflow) renderWorkflowDetail(workflow);
   }));
   if (state.workflows.length && !state.selectedWorkflow) renderWorkflowDetail(state.workflows[0]);
+  renderLeague();
 }
 
 function renderRuns() {
@@ -222,6 +307,58 @@ function renderRuns() {
       <span class="state state-${escapeHtml(run.status)}">${escapeHtml(run.status)}</span>
     </button>`).join("") : '<div class="empty-state">No runs recorded yet. Launch a workflow to create the first operation.</div>';
   document.querySelectorAll(".run-row").forEach((row) => row.addEventListener("click", () => openRun(row.dataset.run)));
+  renderLeague();
+}
+
+const leagueMissions = [
+  { id: "income_opportunity_scan", code: "SCOUT-01", title: "Find your first opening", detail: "Scout practical income paths for your skills and budget.", kind: "SCOUTING", prompt: "Find and rank realistic income opportunities for me. Treat revenue estimates as uncertain. Include free validation steps before spending." },
+  { id: "shop_setup_kit", code: "SHOP-02", title: "Build a shop launch kit", detail: "Prepare a storefront offer, listing copy, and launch checklist.", kind: "COMMERCE", prompt: "Create a practical shop launch kit: product or service offer, listing copy, search terms, FAQ, pricing hypotheses, and an account setup checklist. Mark unknown details as placeholders." },
+  { id: "competitor_intelligence", code: "INTEL-03", title: "Map the competition", detail: "Research comparable offers and identify a useful angle.", kind: "RESEARCH", prompt: "Research comparable offers and competitors for a realistic small business opportunity. Separate sourced facts from assumptions and recommend a low-cost validation experiment." },
+  { id: "game_preproduction", code: "DESIGN-04", title: "Blueprint a new game", detail: "Create and review the game plan before any code or dialogue.", kind: "PRE-PRODUCTION", prompt: "Create a pre-production blueprint for this game idea. Do not write code, dialogue, or production assets. First capture the audience, platform, core player fantasy, scope, constraints, unknowns, and assumptions. Produce a reviewed design brief with pillars, core loop, key systems, first playable milestone, risks, acceptance criteria, and a human approval gate before production." },
+];
+const saintOrders = ["saint-scholar", "saint-forger", "saint-seeker", "fallen-oracle", "fallen-judge", "fallen-trickster"];
+
+function renderLeague() {
+  if (!$("#arena-missions")) return;
+  const workflowsById = new Map(state.workflows.map((item) => [item.id, item]));
+  const available = leagueMissions.filter((mission) => workflowsById.has(mission.id));
+  $("#arena-missions").innerHTML = available.length ? available.map((mission, index) => `
+    <article class="mission-card" data-mission-kind="${mission.kind}"><div class="mission-top"><span>${mission.code}</span><span class="mission-kind">${mission.kind}</span></div><h3>${mission.title}</h3><p>${mission.detail}</p><button type="button" data-deploy-mission="${mission.id}"><span>DEPLOY CREW</span><b>${String(index + 1).padStart(2, "0")} ↗</b></button></article>`).join("") : '<div class="empty-state">No mission workflows are installed yet. Open the Workshop to inspect your available systems.</div>';
+  $("#arena-missions").querySelectorAll("[data-deploy-mission]").forEach((button) => button.addEventListener("click", () => deployMission(button.dataset.deployMission)));
+
+  const activeRuns = state.runs.filter((run) => run.status === "running");
+  const successes = state.runs.filter((run) => run.status === "succeeded").length;
+  const rank = successes >= 25 ? "CHAMPION" : successes >= 10 ? "CAPTAIN" : successes >= 3 ? "OPERATOR" : "ROOKIE";
+  const selected = state.selectedWorkflow || state.workflows[0];
+  const agents = selected?.agent_list || [];
+  $("#league-runs").textContent = String(state.runs.length).padStart(2, "0");
+  $("#league-rank").textContent = rank;
+  $("#league-agents").textContent = String(agents.length).padStart(2, "0");
+  $("#league-agent-note").textContent = selected ? `${selected.name} workflow crew` : "No workflow crew loaded";
+  $("#arena-live-state").textContent = activeRuns.length ? `${activeRuns.length} OPERATION${activeRuns.length === 1 ? "" : "S"} ACTIVE` : "STANDING BY";
+  $("#master-status").classList.toggle("is-active", activeRuns.length > 0);
+  const agentMarkup = agents.slice(0, 6).map((agent, index) => {
+    const busy = activeRuns.some((run) => run.workflow === selected.id);
+    const order = saintOrders[index];
+    const alignment = index < 3 ? "RADIANT ORDER" : "FALLEN ORDER";
+    return `<div class="crew-unit ${busy ? "crew-working" : ""}"><span class="crew-avatar ${index < 3 ? "radiant" : "fallen"}"><svg aria-hidden="true"><use href="/saint-icons.svg#${order}"></use></svg></span><span><strong>${escapeHtml(agent.name)}</strong><small>${alignment} · ${busy ? "ON MISSION" : "READY"}</small></span><i></i></div>`;
+  }).join("");
+  $("#arena-roster").innerHTML = agentMarkup || '<div class="empty-state">Choose a workflow in the Workshop to view its agents.</div>';
+  $("#crew-nodes").innerHTML = agents.slice(0, 3).map((agent, index) => `<span class="node-orbit orbit-${index + 1}"><svg aria-hidden="true"><use href="/saint-icons.svg#${saintOrders[index]}"></use></svg></span>`).join("") + `<strong>${agents.length ? `${agents.length} AGENTS` : "NO CREW"}</strong><small>${selected ? escapeHtml(selected.name.toUpperCase()) : "LOAD WORKFLOWS"}</small>`;
+  const recent = state.runs.slice(0, 4);
+  $("#arena-history").innerHTML = recent.length ? recent.map((run) => `<button class="arena-history-row" type="button" data-arena-run="${escapeHtml(run.id)}"><span class="history-run-dot state-${escapeHtml(run.status)}"></span><strong>${escapeHtml(run.workflow)}</strong><span>${escapeHtml(run.task)}</span><small>${escapeHtml(run.status.toUpperCase())}</small></button>`).join("") : '<div class="empty-state">No deployments yet. Pick a mission to run your first operation.</div>';
+  $("#arena-history").querySelectorAll("[data-arena-run]").forEach((row) => row.addEventListener("click", () => { showView("create"); openRun(row.dataset.arenaRun); }));
+}
+
+function deployMission(workflowId) {
+  const mission = leagueMissions.find((item) => item.id === workflowId);
+  const workflow = state.workflows.find((item) => item.id === workflowId);
+  if (!mission || !workflow) return;
+  renderWorkflowDetail(workflow);
+  $("#task-input").value = `${mission.prompt}\n\nMY PROFILE\n${profileBrief()}`;
+  $("#arena-live-state").textContent = "DEPLOYING MISSION";
+  $("#dispatch-state").textContent = "DISPATCHING FROM LEAGUE";
+  $("#run-form").requestSubmit();
 }
 
 async function loadRuns() {
@@ -308,6 +445,202 @@ async function loadConnectors() {
   }));
 }
 
+function renderMcpCatalog() {
+  const list = $("#mcp-catalog-list");
+  if (!state.catalog.length) {
+    list.innerHTML = '<div class="empty-state">No compatible servers found. Try another search.</div>';
+    return;
+  }
+  list.innerHTML = state.catalog.map((server, index) => {
+    const transport = server.connection.transport === "http" ? server.connection.url : server.connection.package;
+    const existing = state.connectors.find((item) => item.name === server.title || item.id === server.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40));
+    return `<article class="catalog-server"><div class="catalog-server-main"><strong>${escapeHtml(server.title)}</strong><small>${escapeHtml(server.name)} · v${escapeHtml(server.version)}</small><p>${escapeHtml(server.description || "No description supplied.")}</p><span class="catalog-transport">${escapeHtml(transport || "No connection method")}</span></div><div class="catalog-server-actions">${server.repository ? `<a href="${escapeHtml(server.repository)}" target="_blank" rel="noopener noreferrer">Source</a>` : ""}<button type="button" data-catalog-index="${index}">${existing ? "Configured" : "Use server"}</button></div></article>`;
+  }).join("");
+  list.querySelectorAll("[data-catalog-index]").forEach((button) => button.addEventListener("click", () => {
+    const server = state.catalog[Number(button.dataset.catalogIndex)];
+    if (server) prepareCatalogConnector(server);
+  }));
+}
+
+async function loadMcpCatalog(query = "") {
+  $("#mcp-catalog-state").textContent = "SEARCHING OFFICIAL REGISTRY";
+  try {
+    const result = await request(`/api/mcp-catalog?search=${encodeURIComponent(query)}`);
+    state.catalog = result.servers;
+    $("#mcp-catalog-state").textContent = `${result.servers.length} AVAILABLE`;
+    renderMcpCatalog();
+  } catch (error) {
+    $("#mcp-catalog-state").textContent = "REGISTRY UNAVAILABLE";
+    $("#mcp-catalog-list").innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function prepareCatalogConnector(server) {
+  const connection = server.connection;
+  const id = server.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "mcp-server";
+  $("#connector-id").value = id.length > 1 ? id : `mcp-${id}`;
+  $("#connector-name").value = server.title.slice(0, 80);
+  $("#connector-category").value = server.category;
+  $("#connector-transport").value = connection.transport;
+  $("#connector-transport").dispatchEvent(new Event("change"));
+  if (connection.transport === "http") {
+    $("#connector-url").value = connection.url;
+    $("#connector-headers").value = connection.headers.map((header) => `${header.name}=${header.env_name}`).join("\n");
+  } else {
+    $("#connector-command").value = connection.command[0];
+    $("#connector-args").value = connection.args.slice(1).join("\n");
+    $("#connector-env").value = "";
+  }
+  $("#connector-message").textContent = "Review the source, add any required local credentials, then save and inspect. No package has been installed or launched yet.";
+  $("#connector-form-panel").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+let catalogSearchTimer;
+$("#mcp-catalog-search").addEventListener("input", () => {
+  clearTimeout(catalogSearchTimer);
+  catalogSearchTimer = setTimeout(() => loadMcpCatalog($("#mcp-catalog-search").value), 350);
+});
+loadMcpCatalog();
+
+function renderOpportunities(query = "") {
+  const needle = query.trim().toLowerCase();
+  const matches = state.opportunities.filter((item) => !needle || `${item.name} ${item.model}`.toLowerCase().includes(needle));
+  $("#opportunity-summary").textContent = `${matches.length} of ${state.opportunities.length} platforms · source catalog, not a revenue forecast`;
+  const list = $("#opportunity-list");
+  list.innerHTML = matches.length ? matches.map((item) => `<article class="opportunity-row"><div><strong>${escapeHtml(item.name)}</strong><p>${escapeHtml(item.model)}</p></div><button type="button" data-plan-opportunity="${escapeHtml(item.name)}">Plan this</button></article>`).join("") : '<div class="empty-state">No matches. Try a broader search.</div>';
+  list.querySelectorAll("[data-plan-opportunity]").forEach((button) => button.addEventListener("click", () => {
+    const opportunity = state.opportunities.find((item) => item.name === button.dataset.planOpportunity);
+    if (!opportunity) return;
+    const prompt = `Think through whether ${opportunity.name} is a viable income opportunity for me. Its listed monetization model is: ${opportunity.model}. Compare fit with my skills, audience, weekly hours, and budget shown in the Income desk. Recommend a low-cost validation test, important platform requirements to verify, risks/costs, and a 1-4 step plan. Do not assume earnings or claim current platform terms without checking.`;
+    $("#assistant-input").value = prompt;
+    $("#assistant-input").focus();
+    setAssistantOpen(true);
+    $("#assistant-form").requestSubmit();
+  }));
+}
+
+async function loadOpportunities() {
+  try {
+    const result = await request("/api/opportunities");
+    state.opportunities = result.opportunities;
+    renderOpportunities();
+  } catch (error) {
+    $("#opportunity-summary").textContent = error.message;
+  }
+}
+$("#opportunity-search").addEventListener("input", (event) => renderOpportunities(event.target.value));
+loadOpportunities();
+
+function terminalAppend(value) {
+  const output = $("#terminal-output");
+  const clean = value.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "").replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+  output.textContent = (output.textContent + clean).slice(-200_000);
+  output.scrollTop = output.scrollHeight;
+}
+
+async function pollTerminal() {
+  if (!state.terminalSession) return;
+  try {
+    const result = await request(`/api/terminal/read?session=${encodeURIComponent(state.terminalSession)}`);
+    if (result.output) terminalAppend(result.output);
+    if (result.closed) {
+      $("#terminal-state").textContent = "SESSION ENDED";
+      stopTerminalPolling();
+      $("#terminal-input").disabled = true;
+      $("#terminal-send").disabled = true;
+      $("#terminal-interrupt").disabled = true;
+    }
+  } catch (error) {
+    $("#terminal-state").textContent = error.message;
+    stopTerminalPolling();
+  }
+}
+
+function stopTerminalPolling() {
+  if (state.terminalTimer) clearInterval(state.terminalTimer);
+  state.terminalTimer = null;
+}
+
+function activateTerminal(session, cwd) {
+  state.terminalSession = session;
+  sessionStorage.setItem("guade-terminal-session", session);
+  $("#terminal-cwd").textContent = cwd;
+  $("#terminal-state").textContent = "RUNNING";
+  $("#terminal-input").disabled = false;
+  $("#terminal-send").disabled = false;
+  $("#terminal-stop").disabled = false;
+  $("#terminal-interrupt").disabled = false;
+  $("#terminal-output").textContent = "";
+  stopTerminalPolling();
+  pollTerminal();
+  state.terminalTimer = setInterval(pollTerminal, 350);
+  $("#terminal-input").focus();
+}
+
+$("#terminal-consent").addEventListener("change", (event) => {
+  $("#terminal-start").disabled = !event.currentTarget.checked;
+});
+$("#terminal-start").addEventListener("click", async () => {
+  const button = $("#terminal-start");
+  button.disabled = true;
+  $("#terminal-state").textContent = "STARTING";
+  try {
+    const result = await request("/api/terminal/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true }) });
+    activateTerminal(result.session, result.cwd);
+  } catch (error) {
+    $("#terminal-state").textContent = error.message;
+    button.disabled = !$("#terminal-consent").checked;
+  }
+});
+
+$("#terminal-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const input = $("#terminal-input");
+  const value = input.value;
+  if (!value || !state.terminalSession) return;
+  input.value = "";
+  try {
+    await request("/api/terminal/input", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session: state.terminalSession, input: value }) });
+  } catch (error) {
+    terminalAppend(`\n${error.message}\n`);
+  }
+});
+
+$("#terminal-interrupt").addEventListener("click", async () => {
+  if (!state.terminalSession) return;
+  await request("/api/terminal/input", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session: state.terminalSession, input: "\u0003", raw: true }) }).catch((error) => terminalAppend(`\n${error.message}\n`));
+});
+
+$("#terminal-stop").addEventListener("click", async () => {
+  if (!state.terminalSession) return;
+  const id = state.terminalSession;
+  stopTerminalPolling();
+  await request(`/api/terminal/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+  state.terminalSession = null;
+  sessionStorage.removeItem("guade-terminal-session");
+  $("#terminal-state").textContent = "STOPPED";
+  $("#terminal-input").disabled = true;
+  $("#terminal-send").disabled = true;
+  $("#terminal-stop").disabled = true;
+  $("#terminal-interrupt").disabled = true;
+  $("#terminal-start").disabled = !$("#terminal-consent").checked;
+});
+
+const savedTerminalSession = sessionStorage.getItem("guade-terminal-session");
+if (savedTerminalSession) {
+  state.terminalSession = savedTerminalSession;
+  pollTerminal().then(() => {
+    if (state.terminalSession) {
+      $("#terminal-cwd").textContent = "Existing local shell session";
+      $("#terminal-stop").disabled = false;
+      $("#terminal-input").disabled = false;
+      $("#terminal-send").disabled = false;
+      $("#terminal-interrupt").disabled = false;
+      state.terminalTimer = setInterval(pollTerminal, 350);
+    }
+  });
+}
+
 function parseEnvironmentMap(raw) {
   const mapping = {};
   for (const line of raw.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)) {
@@ -381,6 +714,29 @@ function profileBrief() {
   return details.join("\n");
 }
 
+const viewTitles = { home: "Operations Arena", opportunities: "Mission Board", create: "Workshop", connections: "Agent Loadout" };
+function showView(view, updateUrl = true, scrollTop = true) {
+  if (!viewTitles[view]) view = "home";
+  document.querySelectorAll("[data-view-page]").forEach((element) => { element.hidden = element.dataset.viewPage !== view; });
+  document.querySelectorAll(".nav-item[data-view]").forEach((link) => link.classList.toggle("active", link.dataset.view === view));
+  document.querySelector(".breadcrumb strong").textContent = viewTitles[view].toUpperCase();
+  document.title = "GUADE | " + viewTitles[view];
+  if (updateUrl) {
+    const nav = [...document.querySelectorAll(".nav-item[data-view]")].find((link) => link.dataset.view === view);
+    if (nav) history.replaceState(null, "", nav.getAttribute("href"));
+  }
+  if (scrollTop) window.scrollTo({ top: 0, behavior: "smooth" });
+}
+document.querySelectorAll(".nav-item[data-view]").forEach((link) => link.addEventListener("click", (event) => {
+  event.preventDefault();
+  showView(link.dataset.view);
+}));
+const initialHash = location.hash;
+const initialNav = [...document.querySelectorAll(".nav-item[data-view]")].find((link) => link.getAttribute("href") === initialHash);
+const initialView = initialNav?.dataset.view || ({ "#launcher": "create", "#activity": "create", "#creator": "create", "#payments": "connections" }[initialHash]) || "home";
+showView(initialView, false);
+$(".brand").addEventListener("click", (event) => { event.preventDefault(); showView("home"); });
+
 document.querySelectorAll("[data-launch-workflow]").forEach((button) => button.addEventListener("click", () => {
   const workflowId = button.dataset.launchWorkflow;
   const platform = button.dataset.platform;
@@ -391,12 +747,18 @@ document.querySelectorAll("[data-launch-workflow]").forEach((button) => button.a
     ? `Find and rank realistic income opportunities for me. Treat all revenue estimates as uncertain and include validation steps before spending.\n\nMY PROFILE\n${profileBrief()}`
     : `Create a practical shop and offer setup kit for ${platform || "the platform I choose"}. Build the profile, listing or service copy, pricing hypotheses, FAQs, and account setup checklist. Clearly mark missing facts as placeholders.\n\nMY PROFILE\n${profileBrief()}`;
   $("#task-input").value = directive;
+  showView("create", true, false);
   $("#launcher").scrollIntoView({ behavior: "smooth" });
   $("#task-input").focus({ preventScroll: true });
 }));
 document.querySelectorAll("[data-scroll-to]").forEach((button) => button.addEventListener("click", () => {
-  $(`#${button.dataset.scrollTo}`).scrollIntoView({ behavior: "smooth" });
+  const target = document.getElementById(button.dataset.scrollTo);
+  const view = target.dataset.viewPage || "home";
+  showView(view, true, false);
+  target.scrollIntoView({ behavior: "smooth" });
 }));
+document.querySelectorAll("[data-go-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.goView)));
+$("#arena-refresh").addEventListener("click", () => refresh());
 
 $("#video-upload").addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
@@ -608,14 +970,9 @@ $("#workflow-select").addEventListener("change", () => {
   const workflow = state.workflows.find((item) => item.id === $("#workflow-select").value);
   if (workflow) renderWorkflowDetail(workflow);
 });
-$("#choose-workflow").addEventListener("click", () => $("#launcher").scrollIntoView({ behavior: "smooth" }));
+$("#choose-workflow").addEventListener("click", () => { showView("create", true, false); $("#launcher").scrollIntoView({ behavior: "smooth" }); });
 $("#refresh-button").addEventListener("click", refresh);
 $("#close-detail").addEventListener("click", () => $("#run-detail").classList.add("hidden"));
-document.querySelectorAll(".nav-item").forEach((link) => link.addEventListener("click", () => {
-  document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
-  link.classList.add("active");
-}));
-
 tickClock();
 setInterval(tickClock, 1000);
 Promise.all([loadStatus(), request("/api/workflows").then((items) => { state.workflows = items; renderWorkflows(); }), loadRuns(), loadConnectors(), loadMediaStatus()]).catch((error) => {

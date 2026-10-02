@@ -12,6 +12,14 @@ def test_example_workflow_loads() -> None:
     assert [step.id for step in workflow.steps] == ["research", "build", "review"]
 
 
+def test_game_preproduction_stops_at_blueprint() -> None:
+    workflow = load_workflow(Path("examples/game_preproduction.json"))
+    assert workflow.name == "game-preproduction-blueprint"
+    assert [step.id for step in workflow.steps] == ["discovery", "blueprint", "review"]
+    assert "do not write implementation code" in workflow.agents["game_designer"].instructions.lower()
+    assert "approval gate" in workflow.steps[-1].task.lower()
+
+
 def test_later_dependency_rejected(tmp_path: Path) -> None:
     path = tmp_path / "bad.json"
     path.write_text(
