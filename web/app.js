@@ -2,6 +2,127 @@
 const $ = (selector) => document.querySelector(selector);
 const state = { workflows: [], runs: [], connectors: [], selectedWorkflow: null, selectedRun: null, pollTimer: null, sourceFile: null, sourceId: null, sourceDuration: 0, sourceUrl: null, mediaReady: false };
 
+const chatKey = "guade-assistant-chat";
+let chatMessages = [];
+try {
+  const stored = JSON.parse(localStorage.getItem(chatKey) || "[]");
+  if (Array.isArray(stored)) chatMessages = stored.filter((item) => ["user", "assistant"].includes(item?.role) && typeof item.content === "string").slice(-16);
+} catch {}
+
+function renderChat() {
+  const container = $("#assistant-messages");
+  if (!chatMessages.length) {
+    container.innerHTML = '<div class="assistant-welcome"><span class="assistant-mark">G</span><div><strong>GUADE Assistant</strong><p>Ask me about getting set up, connecting tools, picking a workflow, or a command you are unsure about.</p></div></div>';
+    return;
+  }
+  container.innerHTML = chatMessages.map((message) => `<article class="chat-message ${message.role === "user" ? "chat-user" : "chat-agent"}"><span class="chat-speaker">${message.role === "user" ? "YOU" : "GUADE ASSISTANT"}</span><div class="chat-content"></div></article>`).join("");
+  container.querySelectorAll(".chat-content").forEach((node, index) => { node.textContent = chatMessages[index].content; });
+  container.scrollTop = container.scrollHeight;
+}
+
+function updateProviderFields() {
+  const assistant = $("#assistant-provider").value;
+  $("#assistant-base-url").disabled = assistant === "codex";
+  $("#assistant-base-url").placeholder = assistant === "codex" ? "Not used by Codex CLI" : "API base URL (optional)";
+  const workflow = $("#workflow-provider").value;
+  $("#workflow-base-url").placeholder = workflow === "ollama" ? "http://127.0.0.1:11434/v1" : "https://api.openai.com/v1";
+}
+
+async function loadProviderSettings() {
+  try {
+    const settings = await request("/api/settings/provider");
+    for (const scope of ["workflow", "assistant"]) {
+      $(`#${scope}-provider`).value = settings[scope].provider;
+      $(`#${scope}-model`).value = settings[scope].model;
+      $(`#${scope}-base-url`).value = settings[scope].base_url;
+    }
+    updateProviderFields();
+  } catch (error) {
+    $("#provider-message").textContent = error.message;
+  }
+}
+
+$("#workflow-provider").addEventListener("change", updateProviderFields);
+$("#assistant-provider").addEventListener("change", updateProviderFields);
+$("#provider-settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("#provider-save");
+  const message = $("#provider-message");
+  button.disabled = true;
+  try {
+    await request("/api/settings/provider", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.fromEntries(["workflow", "assistant"].map((scope) => [scope, {
+        provider: $(`#${scope}-provider`).value,
+        model: $(`#${scope}-model`).value.trim(),
+        base_url: $(`#${scope}-base-url`).value.trim(),
+      }]))),
+    });
+    message.textContent = "Saved locally. New chat replies and workflow runs will use these providers.";
+    await loadStatus();
+  } catch (error) {
+    message.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+loadProviderSettings();
+
+function saveChat() {
+  try { localStorage.setItem(chatKey, JSON.stringify(chatMessages.slice(-16))); } catch {}
+}
+
+$("#assistant-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const input = $("#assistant-input");
+  const button = $("#assistant-send");
+  const content = input.value.trim();
+  if (!content) return;
+  chatMessages.push({ role: "user", content });
+  chatMessages = chatMessages.slice(-16);
+  saveChat();
+  renderChat();
+  input.value = "";
+  button.disabled = true;
+  $("#assistant-state").textContent = "THINKING";
+  const pending = document.createElement("div");
+  pending.className = "assistant-pending";
+  pending.textContent = "GUADE is thinking…";
+  $("#assistant-messages").append(pending);
+  try {
+    const result = await request("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: chatMessages }),
+    });
+    chatMessages.push({ role: "assistant", content: result.answer });
+    chatMessages = chatMessages.slice(-16);
+    saveChat();
+    renderChat();
+    $("#assistant-state").textContent = "OPERATOR GUIDE";
+  } catch (error) {
+    pending.textContent = error.message;
+    pending.classList.add("assistant-error");
+    $("#assistant-state").textContent = "MODEL CONNECTION REQUIRED";
+  } finally {
+    button.disabled = false;
+    input.focus();
+  }
+});
+
+$("#assistant-clear").addEventListener("click", () => {
+  chatMessages = [];
+  saveChat();
+  renderChat();
+  $("#assistant-state").textContent = "OPERATOR GUIDE";
+});
+document.querySelectorAll("[data-chat-prompt]").forEach((button) => button.addEventListener("click", () => {
+  $("#assistant-input").value = button.dataset.chatPrompt;
+  $("#assistant-input").focus();
+}));
+renderChat();
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 }
@@ -27,9 +148,9 @@ async function loadStatus() {
     const data = await request("/api/status");
     const ready = data.provider === "ready";
     $("#provider-dot").classList.toggle("offline", !ready);
-    $("#provider-label").textContent = ready ? "MODEL LINK READY" : "MODEL KEY REQUIRED";
+    $("#provider-label").textContent = ready ? `${data.provider_name.toUpperCase()} READY` : data.provider === "offline" ? "OLLAMA OFFLINE" : data.provider === "not_installed" ? "CODEX CLI REQUIRED" : "MODEL KEY REQUIRED";
     $("#model-name").textContent = data.model;
-    $("#model-state").textContent = ready ? "Provider credentials detected" : "Set OPENAI_API_KEY in this terminal";
+    $("#model-state").textContent = ready ? "Provider available" : data.provider === "offline" ? "Start Ollama to run local workflows" : data.provider === "not_installed" ? "Install Codex CLI for chat" : "Set OPENAI_API_KEY in GUADE's environment";
     $("#storage-path").textContent = data.storage;
   } catch (error) {
     $("#provider-dot").classList.add("offline");
@@ -60,6 +181,14 @@ function renderAgentGrants() {
   }
   container.innerHTML = `<div class="grant-heading">EXTERNAL TOOL ACCESS <span>choose which agents can use connected servers</span></div>${agents.map((agent) => `
     <div class="agent-grant-row"><span class="agent-grant-name">${escapeHtml(agent.name)}</span><div class="grant-options">${state.connectors.map((connector) => `<label title="${connector.configured ? "" : `Missing environment: ${connector.missing_env.join(", ")}`}" class="grant-option"><input type="checkbox" data-agent-grant="${escapeHtml(agent.id)}" value="${escapeHtml(connector.id)}" ${connector.configured ? "" : "disabled"}><span>${escapeHtml(connector.name)}</span></label>`).join("")}</div></div>`).join("")}`;
+}
+
+function renderFinanceConnectors() {
+  document.querySelectorAll("[data-finance-category]").forEach((container) => {
+    const category = container.dataset.financeCategory;
+    const matches = state.connectors.filter((connector) => connector.category === category);
+    container.innerHTML = matches.length ? matches.map((connector) => `<div class="finance-connector"><span class="connector-led ${connector.configured ? "" : "needs-setup"}"></span><span>${escapeHtml(connector.name)}</span><small>${connector.configured ? "READY" : "NEEDS SETUP"}</small></div>`).join("") : '<div class="finance-empty">No provider connector configured</div>';
+  });
 }
 
 function renderWorkflows() {
@@ -139,6 +268,7 @@ async function loadConnectors() {
   const connectors = await request("/api/connectors");
   state.connectors = connectors;
   renderAgentGrants();
+  renderFinanceConnectors();
   const list = $("#connector-list");
   if (!connectors.length) {
     list.innerHTML = '<div class="empty-state">No external tool servers connected. Add an MCP server to make its tools available to selected agents.</div>';
@@ -202,6 +332,7 @@ $("#connector-form").addEventListener("submit", async (event) => {
       body: JSON.stringify({
         id: $("#connector-id").value.trim(),
         name: $("#connector-name").value.trim(),
+        category: $("#connector-category").value,
         transport,
         command: httpMode ? [] : [command],
         args: httpMode ? [] : $("#connector-args").value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .models import StepResult, WorkflowSpec
 from .mcp_connectors import MCPToolSession
-from .provider import OpenAIResponsesProvider
+from .provider import OpenAIResponsesProvider, create_provider
 from .storage import Ledger
 from .tool_runtime import ToolContext, execute_tool, schemas_for
 from .tools import describe_tools
@@ -21,7 +21,7 @@ class WorkflowRunner:
         ledger: Ledger | None = None,
         allow_shell: bool = False,
     ) -> None:
-        self.provider = provider or OpenAIResponsesProvider()
+        self.provider = provider or create_provider("workflow")
         self.ledger = ledger or Ledger()
         self.allow_shell = allow_shell
 

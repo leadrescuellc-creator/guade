@@ -59,6 +59,14 @@ GUADE is a real local-first workflow agent framework. A workflow is executable i
 
    Opportunity and shop setup workflows produce reviewable launch packages. The local creator studio trims video segments and saves rendered thumbnails under the GUADE data directory.
 
+11. Provider routing and operator assistant
+
+   Workflow agents use Ollama's OpenAI-compatible Responses API or the OpenAI API, including function tools. Direct operator chat can additionally use the installed Codex CLI in an ephemeral read-only workspace. Provider and model preferences are stored without credentials; API keys remain in the service environment.
+
+12. Payments and business identity connectors
+
+   The dashboard categorizes generic MCP connections for payments, banking, crypto wallet tools, and business identity workflows. GUADE does not custody keys or store bank credentials, EINs, or D-U-N-S numbers, and does not execute payments itself.
+
 ## Current File Layout
 
 ```text
@@ -77,11 +85,16 @@ workflow-agent/
     mcp_server.py
   bin/
     guade-mcp
+    guade-desktop
+    install-guade-desktop
     workflow-agent-mcp
   web/
     index.html
     app.css
     app.js
+    chat.css
+    operations.css
+    grants.css
   examples/
     income_opportunity_scan.json
     competitor_intelligence.json

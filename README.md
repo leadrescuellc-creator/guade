@@ -7,7 +7,7 @@ GUADE is a local-first workflow agent framework and operations dashboard. It coo
 ## Requirements
 
 - Python 3.11 or newer
-- An OpenAI API key for model-backed runs
+- Ollama, Codex CLI, or an OpenAI API key, depending on selected provider
 - Claude Code in the terminal only if you want Claude to launch GUADE through MCP
 - FFmpeg and ffprobe for the video clipping studio
 
@@ -36,14 +36,14 @@ GUADE is a local-first workflow agent framework and operations dashboard. It coo
    python -m pip install -e .
    ```
 
-4. Set the model provider credentials in the same terminal session:
+4. Choose providers in the dashboard's **Chat with GUADE** panel. Workflow runs default to local Ollama (`qwen3.5:9b`); install Ollama and pull the model if needed. OpenAI API mode requires credentials in the dashboard process environment:
 
    ```bash
    export OPENAI_API_KEY="your-api-key"
    export OPENAI_MODEL="gpt-5-mini"
    ```
 
-   For Windows PowerShell, use `$env:OPENAI_API_KEY="your-api-key"` and `$env:OPENAI_MODEL="gpt-5-mini"`. GUADE checks whether a key exists but never displays or stores its value. Runs requiring a model fail clearly when the key is missing.
+   For Windows PowerShell, use `$env:OPENAI_API_KEY="your-api-key"` and `$env:OPENAI_MODEL="gpt-5-mini"`. API keys are never entered into the dashboard or saved in provider settings. Direct chat supports Codex CLI, Ollama, or OpenAI API. Workflow agents support Ollama or OpenAI-compatible Responses API providers; Codex CLI is chat-only because tool-granted workflows use the Responses tool-calling contract.
 
 5. (Optional) Choose where GUADE stores its SQLite ledger and run artifacts:
 
@@ -65,7 +65,7 @@ GUADE is a local-first workflow agent framework and operations dashboard. It coo
 
 2. Open [http://127.0.0.1:8765](http://127.0.0.1:8765) in your browser. The service binds to localhost by default.
 
-3. Check the model connection indicator. If it reports a missing key, set `OPENAI_API_KEY` in the terminal that started the dashboard and restart the server.
+3. Check the model connection indicator. Ollama must be running for local workflow models. If you select OpenAI API, set `OPENAI_API_KEY` in the environment that starts GUADE. Codex chat uses the signed-in Codex CLI and does not need that API key.
 
 4. Select a workflow from the library, enter the task directive, and choose **Launch workflow**. Shell tools remain disabled unless you turn on the explicit shell option for that run.
 
@@ -75,6 +75,18 @@ GUADE is a local-first workflow agent framework and operations dashboard. It coo
 
 Stop the dashboard with `Ctrl+C` in its terminal. To use another local port, start it with `guade dashboard --port 8766` and open `http://127.0.0.1:8766`.
 
+## Chat And Model Providers
+
+Use **Chat with GUADE** for setup questions, connector guidance, workflow directions, and terminal commands. Its conversation is held in that browser's local storage. Select Codex CLI for a signed-in, ephemeral, read-only assistant session; select Ollama for local chat; or select OpenAI API if you have an API key. Commands are suggested for you to review and run, never executed by chat.
+
+Workflow agents use Ollama or the OpenAI Responses API. Ollama is the default workflow provider and model on a fresh install. Start the Ollama service and pull the configured model if it is not already present:
+
+```bash
+ollama pull qwen3.5:9b
+```
+
+The dashboard's model settings let you change provider, model name, and compatible API base URL. To use Codex CLI for chat, install it, sign in with `codex login`, then restart GUADE. Codex CLI is not offered for tool-using workflow runs; those use the Responses API function-calling contract.
+
 ## Open GUADE Like A Desktop App
 
 On Linux, install a GUADE launcher in the applications menu and (when available) on the Desktop:
@@ -83,7 +95,9 @@ On Linux, install a GUADE launcher in the applications menu and (when available)
 python3 bin/install-guade-desktop
 ```
 
-Click **GUADE** to start the local dashboard and open it in an app-style Chromium window. Python and the project checkout must remain installed in place. The launcher inherits environment variables from the desktop session; model-backed runs need `OPENAI_API_KEY` available to that session. You can also start it directly with `bin/guade-desktop`.
+Click **GUADE** to start the local dashboard and open it in an app-style Chromium window. Python and the project checkout must remain installed in place. You can also start it directly with `bin/guade-desktop`.
+
+Provider choices and model names are stored in `GUADE_HOME/provider-settings.json` with owner-only file permissions. Ollama defaults to `http://127.0.0.1:11434/v1`; select a model shown by `ollama list`. Codex chat requires the Codex CLI to be installed and signed in (`codex login status`).
 
 ## Run From The Terminal
 
@@ -118,6 +132,10 @@ GUADE accepts local stdio and remote HTTP MCP tool servers, so you can connect t
 5. Restart GUADE after changing terminal environment variables. Connector definitions are stored in `GUADE_HOME/mcp-connectors.json`; they contain commands and variable names, never secret values.
 
 MCP servers run with the operating-system permissions of the GUADE process. Register servers you trust and grant each one only to agents that need it.
+
+## Payments And Business Identity
+
+The **Payments & business** area groups MCP connectors for payment processors, banking/data providers, crypto wallet tools, and authorized EIN or D-U-N-S workflows. These are provider connector slots, not built-in integrations or payment execution. Use a provider with its own authorization and confirmation flow, inspect its MCP tools, then grant only the narrow access needed. GUADE does not accept bank passwords, account numbers, wallet seed phrases, or private keys, and does not store EIN or D-U-N-S values in connector settings.
 
 ## Connect Claude Code In The Terminal
 

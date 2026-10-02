@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/app.css">
     <link rel="stylesheet" href="/operations.css">
     <link rel="stylesheet" href="/grants.css">
+    <link rel="stylesheet" href="/chat.css">
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -20,13 +21,15 @@
         </a>
         <div class="rail-label">WORKSPACE</div>
         <nav class="nav-list" aria-label="Main navigation">
-          <a class="nav-item active" href="#top"><span class="nav-glyph">01</span>Command center</a>
+          <a class="nav-item active" href="#top"><span class="nav-glyph">00</span>Command center</a>
+          <a class="nav-item" href="#assistant"><span class="nav-glyph">01</span>Assistant</a>
           <a class="nav-item" href="#income"><span class="nav-glyph">02</span>Income desk</a>
           <a class="nav-item" href="#workflows"><span class="nav-glyph">03</span>Workflows</a>
           <a class="nav-item" href="#launcher"><span class="nav-glyph">04</span>New operation</a>
           <a class="nav-item" href="#activity"><span class="nav-glyph">05</span>Run history</a>
           <a class="nav-item" href="#connections"><span class="nav-glyph">06</span>Connections</a>
-          <a class="nav-item" href="#creator"><span class="nav-glyph">07</span>Creator studio</a>
+          <a class="nav-item" href="#payments"><span class="nav-glyph">07</span>Payments & business</a>
+          <a class="nav-item" href="#creator"><span class="nav-glyph">08</span>Creator studio</a>
         </nav>
         <div class="rail-bottom">
           <span class="copyright">LEADRESCUE LLC</span>
@@ -60,6 +63,25 @@
             <article class="metric-panel"><div class="metric-label">ACTIVE OPERATIONS</div><div class="metric-value" id="active-count">00</div><div class="metric-foot">Runs currently in progress</div></article>
             <article class="metric-panel"><div class="metric-label">COMPLETED RUNS</div><div class="metric-value" id="completed-count">00</div><div class="metric-foot">Successful runs in local ledger</div></article>
             <article class="metric-panel metric-accent"><div class="metric-label">WORKFLOW LIBRARY</div><div class="metric-value" id="workflow-count">00</div><div class="metric-foot">Ready to execute</div></article>
+          </section>
+
+          <section id="assistant" class="section-block">
+            <div class="section-heading">
+              <div><div class="section-index">00 / OPERATOR SUPPORT</div><h2>Chat with GUADE</h2></div>
+              <span class="section-meta" id="assistant-state">OPERATOR GUIDE</span>
+            </div>
+            <div class="panel assistant-panel">
+              <div class="assistant-toolbar"><span>SETUP · CONNECTIONS · WORKFLOWS · COMMANDS</span><button id="assistant-clear" type="button" title="Clear this browser's conversation" aria-label="Clear chat">Clear chat</button></div>
+              <form id="provider-settings-form" class="provider-settings">
+                <div class="provider-setting"><label for="workflow-provider">WORKFLOW MODEL</label><select id="workflow-provider"><option value="openai">OpenAI API</option><option value="ollama">Ollama (local)</option></select><input id="workflow-model" maxlength="120" placeholder="Model name"><input id="workflow-base-url" type="url" maxlength="500" placeholder="API base URL"></div>
+                <div class="provider-setting"><label for="assistant-provider">CHAT MODEL</label><select id="assistant-provider"><option value="codex">Codex CLI (signed-in)</option><option value="ollama">Ollama (local)</option><option value="openai">OpenAI API</option></select><input id="assistant-model" maxlength="120" placeholder="Model name (optional for Codex)"><input id="assistant-base-url" type="url" maxlength="500" placeholder="API base URL"></div>
+                <button id="provider-save" class="button-secondary" type="submit">Save model settings</button><p id="provider-message" role="status"></p>
+              </form>
+              <div id="assistant-messages" class="assistant-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+              <div class="assistant-prompts"><button type="button" data-chat-prompt="Help me set up GUADE and check what is missing.">Set up GUADE</button><button type="button" data-chat-prompt="How do I connect an MCP tool server to a specific workflow agent?">Connect a tool</button><button type="button" data-chat-prompt="Which workflow should I use to find and validate a new income opportunity?">Find a workflow</button></div>
+              <form id="assistant-form" class="assistant-form"><label class="sr-only" for="assistant-input">Message GUADE Assistant</label><textarea id="assistant-input" rows="2" maxlength="8000" placeholder="Ask about setup, connections, workflows, or a terminal command…" required></textarea><button id="assistant-send" class="button-primary" type="submit"><span class="button-led"></span>Send</button></form>
+              <div class="assistant-footnote">Replies use your selected provider. Codex chat runs in an ephemeral read-only session; Ollama runs locally. Commands are suggestions for you to review and run; chat never executes shell commands. API keys stay in environment variables, not this form.</div>
+            </div>
           </section>
 
           <section id="income" class="section-block">
@@ -154,6 +176,7 @@
                 <form id="connector-form" class="connector-form">
                   <label for="connector-id">CONNECTOR ID</label><input id="connector-id" required pattern="[a-z][a-z0-9_-]{1,39}" placeholder="e.g. research" maxlength="40">
                   <label for="connector-name">DISPLAY NAME</label><input id="connector-name" required maxlength="80" placeholder="Research tools">
+                  <label for="connector-category">SERVICE AREA</label><select id="connector-category"><option value="general">General agent tools</option><option value="payments">Payments</option><option value="banking">Banking</option><option value="crypto">Crypto wallet</option><option value="business_identity">Business identity (EIN / D-U-N-S)</option></select>
                   <label for="connector-transport">TRANSPORT</label><select id="connector-transport"><option value="stdio">Local process (stdio)</option><option value="http">Remote endpoint (HTTP)</option></select>
                   <div id="stdio-fields"><label for="connector-command">COMMAND</label><input id="connector-command" placeholder="npx, uvx, or executable path"><label for="connector-args">ARGUMENTS <span>one per line</span></label><textarea id="connector-args" rows="3" placeholder="-y&#10;@vendor/mcp-server"></textarea><label for="connector-env">PROCESS ENVIRONMENT <span>TARGET=LOCAL_VARIABLE</span></label><textarea id="connector-env" rows="2" placeholder="SERVICE_API_KEY=MY_SERVICE_API_KEY"></textarea></div>
                   <div id="http-fields" hidden><label for="connector-url">MCP ENDPOINT URL</label><input id="connector-url" type="url" placeholder="https://tools.example.com/mcp"><label for="connector-headers">HTTP HEADER MAPPING <span>HEADER=LOCAL_VARIABLE</span></label><textarea id="connector-headers" rows="2" placeholder="Authorization=MY_SERVICE_BEARER_TOKEN"></textarea></div>
@@ -163,6 +186,20 @@
               </div>
             </div>
             <p class="section-note">Credentials stay in your terminal environment. Map the server's required variable to a local variable, then restart GUADE after setting it. Grant tools to agents in a workflow with <code>mcp.CONNECTOR_ID</code> or <code>mcp.CONNECTOR_ID.tool_name</code>.</p>
+          </section>
+
+          <section id="payments" class="section-block">
+            <div class="section-heading">
+              <div><div class="section-index">05 / FINANCE & BUSINESS IDENTITY</div><h2>Payments & business</h2></div>
+              <span class="section-meta">PROVIDER-CONNECTED</span>
+            </div>
+            <div class="finance-grid">
+              <article class="panel finance-module"><div class="panel-bar"><span>PAYMENTS</span><span class="panel-live">TOOLS</span></div><p>Connect payment processors through a trusted MCP provider. GUADE can expose granted provider tools to workflow agents; payment actions remain subject to that provider's permissions and confirmation flow.</p><div class="finance-connectors" data-finance-category="payments"></div><a class="finance-link" href="#connections">Configure payment connector <span aria-hidden="true">→</span></a></article>
+              <article class="panel finance-module"><div class="panel-bar"><span>BANK ACCOUNTS</span><span class="panel-live">TOOLS</span></div><p>Use a bank or financial-data provider that supports an authorization flow. GUADE does not collect bank passwords, routing numbers, or full account numbers.</p><div class="finance-connectors" data-finance-category="banking"></div><a class="finance-link" href="#connections">Configure banking connector <span aria-hidden="true">→</span></a></article>
+              <article class="panel finance-module"><div class="panel-bar"><span>CRYPTO WALLETS</span><span class="panel-live">TOOLS</span></div><p>Connect wallet software through a trusted provider for supported public-address or signing tools. Never enter a seed phrase or private key into GUADE, chat, or an agent task.</p><div class="finance-connectors" data-finance-category="crypto"></div><a class="finance-link" href="#connections">Configure wallet connector <span aria-hidden="true">→</span></a></article>
+              <article class="panel finance-module"><div class="panel-bar"><span>BUSINESS IDENTITY</span><span class="panel-live">EIN / D-U-N-S</span></div><p>Use an authorized tax or business-identity provider connector for EIN and D-U-N-S workflows. These identifiers are sensitive; GUADE does not store them in connector settings.</p><div class="finance-connectors" data-finance-category="business_identity"></div><a class="finance-link" href="#connections">Configure identity connector <span aria-hidden="true">→</span></a></article>
+            </div>
+            <p class="section-note">These are connector slots, not direct bank, wallet, tax, or payment processor integrations. Only connect providers you trust, inspect their tools, and grant the narrowest access needed. GUADE does not initiate payments or custody funds by itself.</p>
           </section>
 
           <section id="creator" class="section-block">

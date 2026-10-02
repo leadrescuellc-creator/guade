@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import threading
 import uuid
+import urllib.request
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -17,7 +18,13 @@ from urllib.parse import parse_qs, urlparse
 
 from .creator_media import media_file, media_tools_ready, render_clip, store_thumbnail, store_upload
 from .models import WorkflowSpec
-from .provider import OpenAIResponsesProvider
+from .provider import (
+    ProviderError,
+    create_provider,
+    read_provider_settings,
+    validate_provider_settings,
+    write_provider_settings,
+)
 from .runner import WorkflowRunner
 from .storage import Ledger
 from .mcp_connectors import (
@@ -112,17 +119,32 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = urlparse(self.path).path
         if path == "/api/status":
-            provider = OpenAIResponsesProvider()
+            provider = create_provider("workflow")
+            settings = read_provider_settings()
+            provider_status = "ready" if provider.api_key else "missing_key"
+            if provider.provider_name == "ollama":
+                try:
+                    with urllib.request.urlopen(f"{provider.base_url}/models", timeout=1):
+                        provider_status = "ready"
+                except Exception:
+                    provider_status = "offline"
+            elif provider.provider_name == "codex":
+                provider_status = "ready" if provider.api_key else "not_installed"
             self._json(
                 {
                     "name": "GUADE",
-                    "provider": "ready" if provider.api_key else "missing_key",
+                    "provider": provider_status,
+                    "provider_name": provider.provider_name,
                     "model": provider.default_model,
                     "base_url": provider.base_url,
+                    "assistant_provider": settings["assistant"]["provider"],
+                    "assistant_model": settings["assistant"]["model"],
                     "storage": str(Ledger().home),
                     "media_tools": media_tools_ready(),
                 }
             )
+        elif path == "/api/settings/provider":
+            self._json(read_provider_settings())
         elif path == "/api/workflows":
             self._json(_workflow_catalog())
         elif path == "/api/connectors":
@@ -164,6 +186,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._file("operations.css", "text/css; charset=utf-8")
         elif path == "/grants.css":
             self._file("grants.css", "text/css; charset=utf-8")
+        elif path == "/chat.css":
+            self._file("chat.css", "text/css; charset=utf-8")
         elif path == "/app.js":
             self._file("app.js", "text/javascript; charset=utf-8")
         else:
@@ -171,6 +195,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if path == "/api/settings/provider":
+            self._save_provider_settings()
+            return
+        if path == "/api/chat":
+            self._chat()
+            return
         if path == "/api/media/upload":
             self._upload_video()
             return
@@ -232,6 +262,80 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._json({"error": str(exc)}, 400)
         except Exception as exc:
             self._json({"error": f"Unable to start run: {exc}"}, 500)
+
+    def _chat(self) -> None:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > 150_000:
+                raise ValueError("Chat request must be between 1 byte and 150 KB.")
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+            messages = body.get("messages")
+            if not isinstance(messages, list) or not messages or len(messages) > 20:
+                raise ValueError("Send between 1 and 20 chat messages.")
+            clean = []
+            for message in messages:
+                if not isinstance(message, dict) or message.get("role") not in {"user", "assistant"}:
+                    raise ValueError("Chat messages must have user or assistant roles.")
+                content = message.get("content")
+                if not isinstance(content, str) or not content.strip() or len(content) > 8_000:
+                    raise ValueError("Each chat message must contain up to 8,000 characters.")
+                clean.append({"role": message["role"], "content": content.strip()})
+            if clean[-1]["role"] != "user":
+                raise ValueError("The latest chat message must be from you.")
+
+            status = create_provider("assistant")
+            context = {
+                "application": "GUADE, a local-first workflow and creator operations app by LeadRescue LLC",
+                "model": status.default_model,
+                "model_key_configured": bool(status.api_key),
+                "workflows": [{"id": item["id"], "name": item["name"], "description": item["description"]} for item in _workflow_catalog()],
+                "connectors": public_connectors(),
+                "media_tools_ready": media_tools_ready(),
+                "storage": str(Ledger().home),
+            }
+            if not status.api_key and status.provider_name == "codex":
+                self._json({"error": "Codex CLI is not installed or not available on GUADE's PATH."}, 503)
+                return
+            if not status.api_key:
+                self._json({
+                    "error": "Chat replies need an OpenAI API key. In a terminal, run `export OPENAI_API_KEY='your-key'`, then start GUADE from that same terminal with `bin/guade-desktop` (or `python3 -m workflow_agent dashboard`). The key is not saved by GUADE."
+                }, 503)
+                return
+            instructions = (
+                "You are GUADE Assistant, the in-app operator guide for GUADE by LeadRescue LLC. "
+                "Help directly with setup, model configuration, MCP connections, choosing workflows, creator tools, "
+                "and terminal commands. Be concise, practical, and specific to the supplied live GUADE context. "
+                "Distinguish verified app behavior from suggestions, never promise income, and never claim to have "
+                "changed files, run commands, connected accounts, or published listings. You cannot execute tools. "
+                "Give commands for the user to review and run themselves; explain destructive or credential-sensitive "
+                "commands before suggesting them. Never ask the user to paste API keys into chat. If the model key "
+                "is missing, clearly say chat replies require OPENAI_API_KEY and show how to set it in a terminal. "
+                "For connector secrets, use environment variable names and explain restarting GUADE after setting them. "
+                f"Current GUADE context (JSON): {json.dumps(context, ensure_ascii=True)}"
+            )
+            prompt = "Conversation so far:\n" + "\n".join(
+                f"{item['role'].upper()}: {item['content']}" for item in clean[-16:]
+            )
+            answer = status.complete(instructions, prompt).text
+            self._json({"answer": answer})
+        except (ValueError, TypeError, json.JSONDecodeError) as exc:
+            self._json({"error": str(exc)}, 400)
+        except ProviderError as exc:
+            self._json({"error": str(exc)}, 503)
+        except Exception as exc:
+            self._json({"error": str(exc)}, 503)
+
+    def _save_provider_settings(self) -> None:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > 20_000:
+                raise ValueError("Provider settings must be under 20 KB.")
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+            settings = validate_provider_settings(body)
+            write_provider_settings(settings)
+            self._json(settings)
+        except (ValueError, TypeError, json.JSONDecodeError) as exc:
+            self._json({"error": str(exc)}, 400)
 
     def do_DELETE(self) -> None:
         path = urlparse(self.path).path
