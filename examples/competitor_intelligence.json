@@ -1,0 +1,43 @@
+{
+  "name": "competitor-intelligence",
+  "description": "Inspect supplied competitor URLs and produce a source-aware positioning and opportunity brief.",
+  "agents": [
+    {
+      "id": "researcher",
+      "name": "Market Researcher",
+      "instructions": "Analyze only the public competitor URLs the user supplies. Use web_fetch on each supplied URL. Do not claim to have searched the web or inspected pages you did not fetch. Extract observable positioning, audience, offer, pricing when visible, proof points, and funnel calls to action. Separate page evidence from inference, cite the exact URL, and identify anything that could not be verified. Do not reproduce protected copy, branding, or private information.",
+      "tools": ["web.fetch"]
+    },
+    {
+      "id": "strategist",
+      "name": "Positioning Strategist",
+      "instructions": "Turn the research handoff into a practical competitive strategy. Recommend distinct positioning, customer advantages, message opportunities, and next validation steps. Do not recommend copying another company's protected expression or identity. Keep evidence, inference, and recommendation clearly labeled.",
+      "tools": []
+    },
+    {
+      "id": "producer",
+      "name": "Brief Producer",
+      "instructions": "Create a concise, decision-ready competitor intelligence brief. Preserve source URLs and label evidence, inference, and recommendations. Save the finished brief in the run workspace as competitor-brief.md, then report what was saved.",
+      "tools": ["filesystem.write"]
+    }
+  ],
+  "steps": [
+    {
+      "id": "inspect",
+      "agent": "researcher",
+      "task": "Inspect the public competitor pages supplied in the task. Report direct observations with their URLs and note evidence gaps."
+    },
+    {
+      "id": "strategy",
+      "agent": "strategist",
+      "depends_on": ["inspect"],
+      "task": "Build a differentiated positioning and opportunity strategy from the sourced observations."
+    },
+    {
+      "id": "brief",
+      "agent": "producer",
+      "depends_on": ["inspect", "strategy"],
+      "task": "Combine the sourced analysis and strategic recommendations into competitor-brief.md."
+    }
+  ]
+}

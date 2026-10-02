@@ -73,8 +73,10 @@ workflow-agent/
     app.css
     app.js
   examples/
+    competitor_intelligence.json
     local_builder.json
     research_build.json
+    sales_output.json
   docs/
     architecture.md
   tests/

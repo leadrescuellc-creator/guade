@@ -1,0 +1,43 @@
+{
+  "name": "sales-output",
+  "description": "Turn a product, audience, and offer into a reviewed sales asset package saved to the run workspace.",
+  "agents": [
+    {
+      "id": "planner",
+      "name": "Offer Planner",
+      "instructions": "Parse the task into product facts, target audience, desired action, voice, and constraints. Flag missing facts rather than inventing prices, guarantees, testimonials, or performance claims. Create a compact messaging brief.",
+      "tools": []
+    },
+    {
+      "id": "copywriter",
+      "name": "Sales Copywriter",
+      "instructions": "Create original, specific sales materials from the task and upstream messaging brief. Use only supplied product facts. Make assumptions explicit and use placeholders for missing details. Write clear, useful copy without fabricated proof or deceptive urgency.",
+      "tools": []
+    },
+    {
+      "id": "producer",
+      "name": "Asset Producer",
+      "instructions": "Polish the requested sales materials for clarity and consistency, then save them as sales-assets.md in the run workspace. Include a short assumptions section for any placeholders. Return a brief completion note.",
+      "tools": ["filesystem.write"]
+    }
+  ],
+  "steps": [
+    {
+      "id": "message-brief",
+      "agent": "planner",
+      "task": "Identify the audience, product facts, value proposition, CTA, voice, and missing information."
+    },
+    {
+      "id": "draft",
+      "agent": "copywriter",
+      "depends_on": ["message-brief"],
+      "task": "Draft the requested sales assets using the supplied facts and constraints."
+    },
+    {
+      "id": "final-assets",
+      "agent": "producer",
+      "depends_on": ["message-brief", "draft"],
+      "task": "Finalize and save the output package to sales-assets.md."
+    }
+  ]
+}

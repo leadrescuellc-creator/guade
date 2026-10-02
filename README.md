@@ -82,7 +82,7 @@ guade runs
 guade show RUN_ID
 ```
 
-Workflow definitions are JSON files in `examples/`. Each one declares its agents, instructions, allowed tools, and ordered steps. The included workflows are `local_builder` and `research_build`.
+Workflow definitions are JSON files in `examples/`. Each one declares its agents, instructions, allowed tools, and ordered steps. The included workflows are `competitor_intelligence` for public, source-aware competitor analysis, `sales_output` for a reviewed sales asset package, `local_builder` for general artifact creation, and `research_build` for general research and review.
 
 ## Connect Claude Code In The Terminal
 
