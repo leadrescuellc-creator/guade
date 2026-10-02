@@ -104,6 +104,7 @@ class OpenAIResponsesProvider:
             "model": selected_model,
             "instructions": instructions,
             "input": input_items,
+            "max_output_tokens": int(os.environ.get("GUADE_MAX_OUTPUT_TOKENS", "450")),
             "store": False,
         }
         if tools:
@@ -111,11 +112,27 @@ class OpenAIResponsesProvider:
 
         tool_events: list[dict[str, Any]] = []
         body = self._post_response(payload)
+        empty_response_retries = 0
 
         for _ in range(max_tool_rounds):
             calls = _extract_function_calls(body)
             if not calls:
-                text = _extract_output_text(body)
+                try:
+                    text = _extract_output_text(body)
+                except ProviderError:
+                    if not tool_events:
+                        if empty_response_retries >= 1:
+                            raise
+                        empty_response_retries += 1
+                        payload = dict(payload)
+                        payload["instructions"] = (
+                            f"{instructions}\n\n"
+                            "Return a short plain-text completion. If a tool is needed, call it first; "
+                            "otherwise summarize the completed work in one sentence."
+                        )
+                        body = self._post_response(payload)
+                        continue
+                    text = _summarize_tool_events(tool_events)
                 if self.provider_name == "ollama" and _looks_cut_off_at_token_limit(body, text):
                     raise ProviderError(
                         "Provider response appears truncated at the local model token limit. "
@@ -148,6 +165,7 @@ class OpenAIResponsesProvider:
                 "model": selected_model,
                 "instructions": instructions,
                 "input": input_items,
+                "max_output_tokens": int(os.environ.get("GUADE_MAX_OUTPUT_TOKENS", "450")),
                 "store": False,
             }
             if tools:
@@ -167,7 +185,7 @@ class OpenAIResponsesProvider:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=120) as response:
+            with urllib.request.urlopen(request, timeout=int(os.environ.get("GUADE_MODEL_TIMEOUT", "45"))) as response:
                 body = json.loads(response.read().decode("utf-8"))
                 if body.get("status") == "incomplete":
                     details = body.get("incomplete_details") or {}
@@ -273,6 +291,16 @@ def _extract_function_calls(body: dict[str, Any]) -> list[dict[str, Any]]:
         if item.get("type") == "function_call":
             calls.append(item)
     return calls
+
+
+def _summarize_tool_events(tool_events: list[dict[str, Any]]) -> str:
+    parts = []
+    for event in tool_events:
+        name = event.get("name", "tool")
+        output = str(event.get("output", "")).strip()
+        if output:
+            parts.append(f"{name}: {output}")
+    return "\n".join(parts).strip() or "Tool call completed."
 
 
 def _looks_cut_off_at_token_limit(body: dict[str, Any], text: str) -> bool:

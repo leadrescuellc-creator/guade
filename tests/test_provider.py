@@ -1,6 +1,6 @@
 import pytest
 
-from workflow_agent.provider import ProviderError, _extract_output_text, _looks_cut_off_at_token_limit
+from workflow_agent.provider import ProviderError, _extract_output_text, _looks_cut_off_at_token_limit, _summarize_tool_events
 
 
 def test_extract_output_text_rejects_empty_output_text() -> None:
@@ -15,6 +15,10 @@ def test_extract_output_text_rejects_empty_content_chunks() -> None:
 
 def test_extract_output_text_reads_content_chunks() -> None:
     assert _extract_output_text({"output": [{"content": [{"text": "done"}]}]}) == "done"
+
+
+def test_summarize_tool_events_uses_tool_output() -> None:
+    assert _summarize_tool_events([{"name": "filesystem_write", "output": "Wrote output.md"}]) == "filesystem_write: Wrote output.md"
 
 
 def test_cutoff_detection_flags_ollama_style_token_ceiling() -> None:

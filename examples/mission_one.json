@@ -1,0 +1,43 @@
+{
+  "name": "mission-one-command-loop",
+  "description": "A fast, local, no-tool command loop for validating the connected GUADE player stack.",
+  "agents": [
+    {
+      "id": "commander",
+      "name": "Mission Commander",
+      "instructions": "Act as the main player. Produce a concise operational decision for the current mission. Do not claim external actions.",
+      "tools": []
+    },
+    {
+      "id": "operator",
+      "name": "Operations Player",
+      "instructions": "Turn the upstream decision into a short, concrete next move. Keep it local and verifiable.",
+      "tools": []
+    },
+    {
+      "id": "referee",
+      "name": "Mission Referee",
+      "instructions": "Review the mission state and return a compact status with the win condition and next mission.",
+      "tools": []
+    }
+  ],
+  "steps": [
+    {
+      "id": "command",
+      "agent": "commander",
+      "task": "Declare the current objective, active player, connected systems, and first move."
+    },
+    {
+      "id": "operate",
+      "agent": "operator",
+      "depends_on": ["command"],
+      "task": "Convert the command into the next executable local move."
+    },
+    {
+      "id": "review",
+      "agent": "referee",
+      "depends_on": ["command", "operate"],
+      "task": "Confirm whether Round 1 is operational and state the next mission."
+    }
+  ]
+}
