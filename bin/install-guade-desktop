@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 LeadRescue LLC. All rights reserved.
+from pathlib import Path
+import os
+
+root = Path(__file__).resolve().parent.parent
+launcher = root / "bin" / "guade-desktop"
+entry = "\n".join([
+    "[Desktop Entry]",
+    "Version=1.0",
+    "Type=Application",
+    "Name=GUADE",
+    "Comment=Local workflow and creator operations",
+    f"Exec={launcher}",
+    "Icon=applications-internet",
+    "Terminal=false",
+    "Categories=Office;Utility;",
+    "StartupNotify=true",
+    "",
+])
+destinations = [Path.home() / ".local/share/applications/GUADE.desktop"]
+desktop = Path.home() / "Desktop"
+if desktop.is_dir():
+    destinations.append(desktop / "GUADE.desktop")
+for destination in destinations:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(entry, encoding="utf-8")
+    destination.chmod(0o755)
+    print(destination)

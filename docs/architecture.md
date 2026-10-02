@@ -51,13 +51,23 @@ GUADE is a real local-first workflow agent framework. A workflow is executable i
 
    A local HTTP service exposes the same workflow runner and ledger to the browser. The command center launches background runs, polls their real status, and displays saved step outputs and generated workspace artifacts.
 
+9. Connector runtime
+
+   Workflow agents can receive run-scoped tools from local stdio or remote HTTP MCP servers. Connector definitions contain commands, endpoints, and environment-variable references; secret values stay in the GUADE process environment.
+
+10. Income and creator workbench
+
+   Opportunity and shop setup workflows produce reviewable launch packages. The local creator studio trims video segments and saves rendered thumbnails under the GUADE data directory.
+
 ## Current File Layout
 
 ```text
 workflow-agent/
   workflow_agent/
     cli.py
+    creator_media.py
     models.py
+    mcp_connectors.py
     provider.py
     runner.py
     storage.py
@@ -73,9 +83,11 @@ workflow-agent/
     app.css
     app.js
   examples/
+    income_opportunity_scan.json
     competitor_intelligence.json
     local_builder.json
     research_build.json
+    shop_setup_kit.json
     sales_output.json
   docs/
     architecture.md

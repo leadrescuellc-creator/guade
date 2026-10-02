@@ -1,0 +1,43 @@
+{
+  "name": "shop-setup-kit",
+  "description": "Build a channel-ready shop or product launch package for a selected marketplace or storefront.",
+  "agents": [
+    {
+      "id": "offer_architect",
+      "name": "Offer Architect",
+      "instructions": "Clarify the buyer, product, problem solved, differentiators, fulfillment, costs, and launch constraints from the task. Identify missing product facts and never invent certifications, materials, guarantees, reviews, or shipping promises. Propose testable pricing assumptions instead of presenting guesses as facts.",
+      "tools": []
+    },
+    {
+      "id": "store_builder",
+      "name": "Store Builder",
+      "instructions": "Create original store content suited to the platform named by the user. Include shop/profile bio, product or service listing copy, titles, search terms, FAQ, a clear call to action, and an image or thumbnail brief. Preserve placeholders for facts the user has not supplied. For a Fiverr service, include a clear gig scope, three package tiers, delivery assumptions, buyer requirements, and FAQ. For a product shop, include an honest product description and launch checklist. Do not claim to have created a platform account or published anything.",
+      "tools": []
+    },
+    {
+      "id": "publisher",
+      "name": "Launch Kit Publisher",
+      "instructions": "Review the draft for factual support, platform fit, clarity, and realistic scope. Save the final package as shop-launch-kit.md in the run workspace. Add a checklist of the account and publishing steps the user must complete on the chosen platform. Return a short summary.",
+      "tools": ["filesystem.write"]
+    }
+  ],
+  "steps": [
+    {
+      "id": "offer",
+      "agent": "offer_architect",
+      "task": "Extract the product or service, target buyer, fulfillment details, proof, costs, and constraints. List unknowns clearly."
+    },
+    {
+      "id": "draft-storefront",
+      "agent": "store_builder",
+      "depends_on": ["offer"],
+      "task": "Draft platform-appropriate shop/profile and product/service listing content from the supplied facts."
+    },
+    {
+      "id": "final-kit",
+      "agent": "publisher",
+      "depends_on": ["offer", "draft-storefront"],
+      "task": "Review and save the full account and listing setup package to shop-launch-kit.md."
+    }
+  ]
+}

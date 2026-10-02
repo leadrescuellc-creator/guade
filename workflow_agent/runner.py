@@ -6,6 +6,7 @@ import uuid
 from pathlib import Path
 
 from .models import StepResult, WorkflowSpec
+from .mcp_connectors import MCPToolSession
 from .provider import OpenAIResponsesProvider
 from .storage import Ledger
 from .tool_runtime import ToolContext, execute_tool, schemas_for
@@ -37,7 +38,9 @@ class WorkflowRunner:
 
         outputs: dict[str, StepResult] = {}
         results: list[StepResult] = []
+        mcp_session = MCPToolSession(workflow.agents)
         try:
+            mcp_session.start()
             for step in workflow.steps:
                 agent = workflow.agents[step.agent]
                 prompt = self._build_prompt(user_task, step.task, step.depends_on, outputs, agent.tools)
@@ -49,8 +52,12 @@ class WorkflowRunner:
                 model_result = self.provider.complete_with_tools(
                     agent.instructions,
                     prompt,
-                    schemas_for(agent.tools),
-                    lambda name, args: execute_tool(tool_context, name, args),
+                    schemas_for(agent.tools) + mcp_session.schemas_for(agent.tools),
+                    lambda name, args: (
+                        mcp_session.execute(name, args)
+                        if mcp_session.handles(name)
+                        else execute_tool(tool_context, name, args)
+                    ),
                     agent.model,
                 )
                 result = StepResult(
@@ -80,6 +87,8 @@ class WorkflowRunner:
         except Exception:
             self.ledger.finish_run(run_id, "failed")
             raise
+        finally:
+            mcp_session.close()
         return run_id, results
 
     def _build_prompt(

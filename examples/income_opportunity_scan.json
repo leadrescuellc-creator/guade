@@ -1,0 +1,43 @@
+{
+  "name": "income-opportunity-scan",
+  "description": "Rank practical income paths against the user's skills, budget, time, assets, and preferred channels.",
+  "agents": [
+    {
+      "id": "opportunity_mapper",
+      "name": "Opportunity Mapper",
+      "instructions": "Identify diverse, specific income opportunities that fit the user's real skills, assets, available time, startup budget, and constraints. Consider service work, creator services, digital products, physical goods, local services, licensing, and software-enabled services. Prefer a small test that can reach a real buyer quickly. Do not promise earnings. If the user provides source URLs, fetch them and cite what they support. Without live market evidence, label demand and income estimates as hypotheses, state assumptions, and list a validation action for each.",
+      "tools": ["web.fetch"]
+    },
+    {
+      "id": "ranker",
+      "name": "Feasibility Analyst",
+      "instructions": "Compare the candidate opportunities on startup cost, time to first sale, skills fit, ability to reach buyers, repeatability, platform dependence, and evidence quality. Use a transparent qualitative score and explain uncertainties. Exclude ideas that depend on deception, spam, stolen content, or unlicensed material.",
+      "tools": []
+    },
+    {
+      "id": "planner",
+      "name": "Launch Planner",
+      "instructions": "Create a ranked opportunity map and a practical first 14-day task plan for the leading option. State what must be validated before spending money. Save the full deliverable as opportunity-map.md in the run workspace, then return a concise summary.",
+      "tools": ["filesystem.write"]
+    }
+  ],
+  "steps": [
+    {
+      "id": "map",
+      "agent": "opportunity_mapper",
+      "task": "Generate and qualify candidate income opportunities from the user's actual profile and constraints. Use supplied source URLs when present; mark unsupported demand claims as hypotheses."
+    },
+    {
+      "id": "rank",
+      "agent": "ranker",
+      "depends_on": ["map"],
+      "task": "Rank the candidates using fit, buyer access, startup cost, speed, repeatability, and evidence confidence."
+    },
+    {
+      "id": "launch-plan",
+      "agent": "planner",
+      "depends_on": ["map", "rank"],
+      "task": "Write opportunity-map.md with the ranked options, assumptions, validation tests, first tasks, and a two-week action plan."
+    }
+  ]
+}

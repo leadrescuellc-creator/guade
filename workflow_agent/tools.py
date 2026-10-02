@@ -17,6 +17,9 @@ def describe_tools(tool_names: list[str]) -> str:
         return "No tools granted."
     lines = []
     for name in tool_names:
-        description = TOOL_REGISTRY.get(name, "Unknown tool grant. Treat as unavailable.")
+        description = TOOL_REGISTRY.get(name)
+        if description is None and name.startswith("mcp."):
+            description = "Call tools from a configured MCP server granted to this agent."
+        description = description or "Unknown tool grant. Treat as unavailable."
         lines.append(f"- {name}: {description}")
     return "\n".join(lines)

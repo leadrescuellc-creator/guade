@@ -7,6 +7,8 @@
     <meta name="theme-color" content="#07100b">
     <title>GUADE | Command Center</title>
     <link rel="stylesheet" href="/app.css">
+    <link rel="stylesheet" href="/operations.css">
+    <link rel="stylesheet" href="/grants.css">
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -19,9 +21,12 @@
         <div class="rail-label">WORKSPACE</div>
         <nav class="nav-list" aria-label="Main navigation">
           <a class="nav-item active" href="#top"><span class="nav-glyph">01</span>Command center</a>
-          <a class="nav-item" href="#workflows"><span class="nav-glyph">02</span>Workflows</a>
-          <a class="nav-item" href="#launcher"><span class="nav-glyph">03</span>New operation</a>
-          <a class="nav-item" href="#activity"><span class="nav-glyph">04</span>Run history</a>
+          <a class="nav-item" href="#income"><span class="nav-glyph">02</span>Income desk</a>
+          <a class="nav-item" href="#workflows"><span class="nav-glyph">03</span>Workflows</a>
+          <a class="nav-item" href="#launcher"><span class="nav-glyph">04</span>New operation</a>
+          <a class="nav-item" href="#activity"><span class="nav-glyph">05</span>Run history</a>
+          <a class="nav-item" href="#connections"><span class="nav-glyph">06</span>Connections</a>
+          <a class="nav-item" href="#creator"><span class="nav-glyph">07</span>Creator studio</a>
         </nav>
         <div class="rail-bottom">
           <span class="copyright">LEADRESCUE LLC</span>
@@ -57,6 +62,29 @@
             <article class="metric-panel metric-accent"><div class="metric-label">WORKFLOW LIBRARY</div><div class="metric-value" id="workflow-count">00</div><div class="metric-foot">Ready to execute</div></article>
           </section>
 
+          <section id="income" class="section-block">
+            <div class="section-heading">
+              <div><div class="section-index">01 / OPPORTUNITY TO LAUNCH</div><h2>Income desk</h2></div>
+              <span class="section-meta">IDEAS → TASKS → STOREFRONT</span>
+            </div>
+            <div class="panel income-profile">
+              <div class="profile-heading"><div><h3>Your operating profile</h3><p>GUADE uses these constraints to shape opportunity research and launch plans.</p></div><span class="panel-live">SAVED IN THIS BROWSER</span></div>
+              <div class="profile-fields">
+                <label>Skills, experience, and assets<textarea id="profile-skills" rows="2" placeholder="What can you make, teach, fix, design, or deliver?"></textarea></label>
+                <label>Audience, location, or existing channels<textarea id="profile-audience" rows="2" placeholder="Audience size, location, platforms, equipment, existing products…"></textarea></label>
+                <label>Hours available per week<input id="profile-hours" type="number" min="1" max="168" value="8"></label>
+                <label>Startup budget<input id="profile-budget" type="text" maxlength="80" placeholder="e.g. $100, or no upfront spend"></label>
+              </div>
+            </div>
+            <div class="pathway-grid">
+              <article class="pathway-row"><div class="pathway-index">A / DISCOVER</div><div><h3>Find income opportunities</h3><p>Rank practical paths against your skills, time, budget, and buyer access. Get validation tests and a 14-day task plan.</p></div><button class="pathway-action" type="button" data-launch-workflow="income_opportunity_scan">Build opportunity map <span aria-hidden="true">→</span></button></article>
+              <article class="pathway-row"><div class="pathway-index">B / OPEN A SHOP</div><div><h3>Set up a product or service</h3><p>Prepare shop copy, listings, search terms, FAQ, image brief, pricing assumptions, and account setup steps for your chosen platform.</p></div><button class="pathway-action" type="button" data-launch-workflow="shop_setup_kit">Build shop launch kit <span aria-hidden="true">→</span></button></article>
+              <article class="pathway-row"><div class="pathway-index">C / CREATOR SERVICES</div><div><h3>Package a Fiverr gig</h3><p>Turn an existing skill into a scoped service with package tiers, buyer requirements, profile copy, and a delivery checklist.</p></div><button class="pathway-action" type="button" data-launch-workflow="shop_setup_kit" data-platform="Fiverr">Build Fiverr gig kit <span aria-hidden="true">→</span></button></article>
+              <article class="pathway-row"><div class="pathway-index">D / CONTENT</div><div><h3>Repurpose creator footage</h3><p>Cut short-form video drafts and create reusable thumbnails from footage you own or have permission to use.</p></div><button class="pathway-action" type="button" data-scroll-to="creator">Open creator studio <span aria-hidden="true">→</span></button></article>
+            </div>
+            <p class="section-note">GUADE creates research, plans, and publishable draft assets. It does not promise earnings or claim to open accounts or publish listings for you.</p>
+          </section>
+
           <section id="workflows" class="section-block">
             <div class="section-heading">
               <div><div class="section-index">01 / AVAILABLE SYSTEMS</div><h2>Workflow library</h2></div>
@@ -83,6 +111,7 @@
               <form id="run-form">
                 <div class="form-topline"><label for="workflow-select">WORKFLOW</label><span id="dispatch-state">STANDING BY</span></div>
                 <select id="workflow-select" name="workflow" required><option value="">Loading workflows…</option></select>
+                <div class="agent-grants" id="agent-grants"></div>
                 <label class="task-label" for="task-input">TASK DIRECTIVE</label>
                 <textarea id="task-input" name="task" rows="4" maxlength="30000" placeholder="Describe the concrete work GUADE should complete…" required></textarea>
                 <div class="launch-footer">
@@ -108,6 +137,70 @@
               <div class="panel-bar"><span id="run-detail-title">OPERATION DETAILS</span><button class="close-detail" type="button" id="close-detail" aria-label="Close run details" title="Close details">×</button></div>
               <div id="run-detail-body" class="run-detail-body"></div>
             </div>
+          </section>
+
+          <section id="connections" class="section-block">
+            <div class="section-heading">
+              <div><div class="section-index">04 / AGENT TOOLING</div><h2>Connections</h2></div>
+              <span class="section-meta">MODEL CONTEXT PROTOCOL</span>
+            </div>
+            <div class="connections-layout">
+              <div class="panel connections-panel">
+                <div class="panel-bar"><span>REGISTERED TOOL SERVERS</span><span class="panel-live">LOCAL CONFIG</span></div>
+                <div id="connector-list" class="connector-list"><div class="empty-state">No external tool servers connected.</div></div>
+              </div>
+              <div class="panel connector-form-panel">
+                <div class="panel-bar"><span>ADD A TOOL SERVER</span><span class="panel-live">MCP</span></div>
+                <form id="connector-form" class="connector-form">
+                  <label for="connector-id">CONNECTOR ID</label><input id="connector-id" required pattern="[a-z][a-z0-9_-]{1,39}" placeholder="e.g. research" maxlength="40">
+                  <label for="connector-name">DISPLAY NAME</label><input id="connector-name" required maxlength="80" placeholder="Research tools">
+                  <label for="connector-transport">TRANSPORT</label><select id="connector-transport"><option value="stdio">Local process (stdio)</option><option value="http">Remote endpoint (HTTP)</option></select>
+                  <div id="stdio-fields"><label for="connector-command">COMMAND</label><input id="connector-command" placeholder="npx, uvx, or executable path"><label for="connector-args">ARGUMENTS <span>one per line</span></label><textarea id="connector-args" rows="3" placeholder="-y&#10;@vendor/mcp-server"></textarea><label for="connector-env">PROCESS ENVIRONMENT <span>TARGET=LOCAL_VARIABLE</span></label><textarea id="connector-env" rows="2" placeholder="SERVICE_API_KEY=MY_SERVICE_API_KEY"></textarea></div>
+                  <div id="http-fields" hidden><label for="connector-url">MCP ENDPOINT URL</label><input id="connector-url" type="url" placeholder="https://tools.example.com/mcp"><label for="connector-headers">HTTP HEADER MAPPING <span>HEADER=LOCAL_VARIABLE</span></label><textarea id="connector-headers" rows="2" placeholder="Authorization=MY_SERVICE_BEARER_TOKEN"></textarea></div>
+                  <button class="button-secondary" type="submit">Save connector <span aria-hidden="true">+</span></button>
+                  <p class="form-message" id="connector-message" role="status"></p>
+                </form>
+              </div>
+            </div>
+            <p class="section-note">Credentials stay in your terminal environment. Map the server's required variable to a local variable, then restart GUADE after setting it. Grant tools to agents in a workflow with <code>mcp.CONNECTOR_ID</code> or <code>mcp.CONNECTOR_ID.tool_name</code>.</p>
+          </section>
+
+          <section id="creator" class="section-block">
+            <div class="section-heading">
+              <div><div class="section-index">05 / CREATOR REVENUE</div><h2>Creator studio</h2></div>
+              <span class="section-meta" id="media-state">CHECKING MEDIA TOOLS</span>
+            </div>
+            <div class="panel creator-panel">
+              <div class="creator-source">
+                <div class="panel-bar"><span>1 / SOURCE FOOTAGE</span><span class="panel-live">LOCAL FILE</span></div>
+                <div class="creator-controls">
+                  <label class="file-picker" for="video-upload"><span class="file-symbol">+</span><span><strong>Select a video</strong><small>MP4, MOV, M4V, WebM, MKV · up to 2 GB</small></span></label>
+                  <input id="video-upload" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/x-matroska">
+                  <div id="source-name" class="source-name">No source loaded</div>
+                  <video id="source-video" class="source-video hidden" controls playsinline></video>
+                  <div class="time-fields"><label>START (SEC)<input id="clip-start" type="number" min="0" step="0.1" value="0"></label><label>END (SEC)<input id="clip-end" type="number" min="0" step="0.1" value="30"></label></div>
+                  <div class="aspect-picker" role="group" aria-label="Clip format"><label><input type="radio" name="clip-aspect" value="vertical" checked><span>9:16 Vertical</span></label><label><input type="radio" name="clip-aspect" value="square"><span>1:1 Square</span></label><label><input type="radio" name="clip-aspect" value="landscape"><span>16:9 Landscape</span></label></div>
+                  <button id="render-clip" class="button-primary" type="button" disabled><span class="button-led"></span>Render clip</button>
+                  <p id="media-message" class="form-message" role="status"></p>
+                </div>
+              </div>
+              <div class="creator-output">
+                <div class="panel-bar"><span>2 / PUBLISH ASSETS</span><span class="panel-live">EXPORT</span></div>
+                <div class="creator-controls">
+                  <video id="clip-preview" class="clip-preview hidden" controls playsinline></video>
+                  <div id="clip-placeholder" class="clip-placeholder"><span>GUADE / MEDIA OUTPUT</span><small>Rendered clips appear here for review and download.</small></div>
+                  <a id="clip-download" class="button-secondary hidden" download>Download rendered clip <span aria-hidden="true">↓</span></a>
+                  <label class="thumbnail-label" for="thumbnail-title">THUMBNAIL HEADLINE</label>
+                  <input id="thumbnail-title" class="text-input" maxlength="90" placeholder="Write a clear hook for the frame">
+                  <label class="thumbnail-label" for="thumbnail-time">FRAME TIME (SEC)</label>
+                  <input id="thumbnail-time" class="text-input" type="number" min="0" step="0.1" value="0">
+                  <div class="aspect-picker" role="group" aria-label="Thumbnail format"><label><input type="radio" name="thumb-aspect" value="youtube" checked><span>YouTube 16:9</span></label><label><input type="radio" name="thumb-aspect" value="short"><span>Shorts 9:16</span></label></div>
+                  <button id="generate-thumbnail" class="button-secondary" type="button" disabled>Save thumbnail <span aria-hidden="true">↗</span></button>
+                  <div id="thumbnail-result" class="thumbnail-result"></div>
+                </div>
+              </div>
+            </div>
+            <p class="section-note">Footage, clips, and thumbnails stay in your GUADE media folder. This studio creates draft assets; publishing and account actions remain under your control.</p>
           </section>
           <footer class="page-footer"><span>GUADE LOCAL NODE</span><span>Copyright (c) 2026 LeadRescue LLC. All rights reserved.</span></footer>
         </div>
