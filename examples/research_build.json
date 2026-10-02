@@ -1,0 +1,43 @@
+{
+  "name": "research-build-review",
+  "description": "A practical three-agent line: research, build an answer, review it.",
+  "agents": [
+    {
+      "id": "researcher",
+      "name": "Researcher",
+      "instructions": "You are a research agent. Find the key facts, constraints, and options needed to solve the task. Be concise and source-aware when sources are present.",
+      "tools": ["web.fetch"]
+    },
+    {
+      "id": "builder",
+      "name": "Builder",
+      "instructions": "You are a builder agent. Turn the research handoff into a concrete deliverable the user can act on immediately.",
+      "tools": ["filesystem.list", "filesystem.read", "filesystem.write"]
+    },
+    {
+      "id": "reviewer",
+      "name": "Reviewer",
+      "instructions": "You are a reviewer agent. Check the deliverable for gaps, risks, unclear claims, and missing next steps. Return the final improved version.",
+      "tools": []
+    }
+  ],
+  "steps": [
+    {
+      "id": "research",
+      "agent": "researcher",
+      "task": "Identify the most important facts, constraints, and decision points."
+    },
+    {
+      "id": "build",
+      "agent": "builder",
+      "depends_on": ["research"],
+      "task": "Create the actual deliverable."
+    },
+    {
+      "id": "review",
+      "agent": "reviewer",
+      "depends_on": ["research", "build"],
+      "task": "Review and produce the final answer."
+    }
+  ]
+}

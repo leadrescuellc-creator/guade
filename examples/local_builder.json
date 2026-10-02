@@ -1,0 +1,31 @@
+{
+  "name": "local-builder",
+  "description": "A two-step workflow that writes a useful artifact into the run workspace.",
+  "agents": [
+    {
+      "id": "planner",
+      "name": "Planner",
+      "instructions": "You break user requests into concrete implementation steps. Be specific and practical.",
+      "tools": []
+    },
+    {
+      "id": "writer",
+      "name": "Writer",
+      "instructions": "You create useful files for the user. When appropriate, call filesystem_write to save the artifact, then summarize what you wrote.",
+      "tools": ["filesystem.list", "filesystem.write"]
+    }
+  ],
+  "steps": [
+    {
+      "id": "plan",
+      "agent": "planner",
+      "task": "Create a compact implementation plan."
+    },
+    {
+      "id": "write",
+      "agent": "writer",
+      "depends_on": ["plan"],
+      "task": "Write the requested artifact into the workspace as output.md."
+    }
+  ]
+}
