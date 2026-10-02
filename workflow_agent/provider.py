@@ -115,8 +115,14 @@ class OpenAIResponsesProvider:
         for _ in range(max_tool_rounds):
             calls = _extract_function_calls(body)
             if not calls:
+                text = _extract_output_text(body)
+                if self.provider_name == "ollama" and _looks_cut_off_at_token_limit(body, text):
+                    raise ProviderError(
+                        "Provider response appears truncated at the local model token limit. "
+                        "Use a shorter task or split this workflow into smaller chained runs."
+                    )
                 return ModelResult(
-                    text=_extract_output_text(body),
+                    text=text,
                     model=body.get("model", selected_model),
                     usage=body.get("usage") or {},
                     raw_id=body.get("id"),
@@ -162,7 +168,12 @@ class OpenAIResponsesProvider:
         )
         try:
             with urllib.request.urlopen(request, timeout=120) as response:
-                return json.loads(response.read().decode("utf-8"))
+                body = json.loads(response.read().decode("utf-8"))
+                if body.get("status") == "incomplete":
+                    details = body.get("incomplete_details") or {}
+                    reason = details.get("reason") if isinstance(details, dict) else None
+                    raise ProviderError(f"Provider response was incomplete{f': {reason}' if reason else '.'}")
+                return body
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
             raise ProviderError(f"Provider request failed with HTTP {exc.code}: {detail}") from exc
@@ -240,7 +251,9 @@ def _codex_executable() -> str | None:
 
 def _extract_output_text(body: dict[str, Any]) -> str:
     if isinstance(body.get("output_text"), str):
-        return body["output_text"]
+        text = body["output_text"].strip()
+        if text:
+            return text
 
     chunks: list[str] = []
     for item in body.get("output", []):
@@ -248,9 +261,10 @@ def _extract_output_text(body: dict[str, Any]) -> str:
             text = content.get("text")
             if isinstance(text, str):
                 chunks.append(text)
-    if chunks:
-        return "\n".join(chunks).strip()
-    raise ProviderError("Provider response did not include text output.")
+    text = "\n".join(chunks).strip()
+    if text:
+        return text
+    raise ProviderError("Provider response did not include non-empty text output.")
 
 
 def _extract_function_calls(body: dict[str, Any]) -> list[dict[str, Any]]:
@@ -259,3 +273,14 @@ def _extract_function_calls(body: dict[str, Any]) -> list[dict[str, Any]]:
         if item.get("type") == "function_call":
             calls.append(item)
     return calls
+
+
+def _looks_cut_off_at_token_limit(body: dict[str, Any], text: str) -> bool:
+    usage = body.get("usage") or {}
+    total = usage.get("total_tokens")
+    if not isinstance(total, int) or total < 4096:
+        return False
+    stripped = text.rstrip()
+    if not stripped:
+        return True
+    return stripped[-1] not in ".!?:;)>]}`\"'"

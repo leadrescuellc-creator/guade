@@ -3,7 +3,7 @@ name = "guade-workflow-agent"
 version = "0.1.0"
 description = "GUADE local-first workflow agent runtime"
 requires-python = ">=3.11"
-license = "Proprietary"
+license = "LicenseRef-Proprietary"
 authors = [{ name = "LeadRescue LLC" }]
 
 [project.scripts]
@@ -14,3 +14,6 @@ workflow-agent = "workflow_agent.cli:main"
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.setuptools]
+packages = ["workflow_agent"]

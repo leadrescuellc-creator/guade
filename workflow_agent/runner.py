@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .models import StepResult, WorkflowSpec
 from .mcp_connectors import MCPToolSession
-from .provider import OpenAIResponsesProvider, create_provider
+from .provider import OpenAIResponsesProvider, ProviderError, create_provider
 from .storage import Ledger
 from .tool_runtime import ToolContext, execute_tool, schemas_for
 from .tools import describe_tools
@@ -60,6 +60,8 @@ class WorkflowRunner:
                     ),
                     agent.model,
                 )
+                if not model_result.text.strip():
+                    raise ProviderError(f"Step {step.id} returned empty model output.")
                 result = StepResult(
                     step_id=step.id,
                     agent_id=agent.id,
